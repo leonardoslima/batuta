@@ -1162,7 +1162,7 @@ def account_payload(provider: str, table: Dict[str, Any], reading: Dict[str, Any
     result = {"billing": table["billing"].get(provider), "plan": plan,
         "configuredPlan": configured_plan, "price": capabilities.get("price"),
         "source": evidence.get("source"), "observedAt": evidence.get("observedAt"),
-        "confirmed": bool(configured.get("confirmed") and not conflict and configured_plan),
+        "confirmed": bool(configured.get("confirmed") and not conflict),
         "observationStale": bool(observation and age is not None and age > USAGE_STALE_MINUTES),
         "conflict": conflict, "models": capabilities.get("models", []), "limits": capabilities.get("limits", {}),
         "extraUsageEnabled": capabilities.get("extraUsageEnabled"),
@@ -1613,23 +1613,47 @@ def models_payload(policy_path: Path, now: Optional[dt.datetime] = None) -> Dict
     current = now or dt.datetime.now(dt.timezone.utc)
     table = load_prices(policy_path)
     inventory = playbook_model_inventory(policy_path)
-    cache = read_optional_json(codex_home() / "models_cache.json")
+    origins = {(provider, model): {"playbooks"} for provider, entries in inventory.items() for model in entries}
+    cache_path = codex_home() / "models_cache.json"
+    cache = read_optional_json(cache_path)
     cached = cache.get("models", []) if isinstance(cache, dict) else []
+    cache_models = {}
     for entry in cached if isinstance(cached, list) else []:
         name = entry.get("slug") or entry.get("id") if isinstance(entry, dict) else None
-        if isinstance(name, str):
+        if isinstance(name, str) and name.strip():
             inventory.setdefault("codex", {}).setdefault(name, None)
+            cache_models[name] = entry
+            origins.setdefault(("codex", name), set()).add("codex-cache")
+    readings = saved_usage(policy_path)
+    accounts = {provider: account_payload(provider, table, readings.get(provider, {}), current)
+                for provider in dict.fromkeys((*BUILTIN_PROVIDERS, *inventory, *table["accounts"], *table["billing"]))}
+    for provider, account in accounts.items():
+        if account["confirmed"] and not account["conflict"]:
+            for model in account["models"]:
+                inventory.setdefault(provider, {}).setdefault(model, None)
+                origins.setdefault((provider, model), set()).add("confirmed-account")
     for key in table["models"]:
         provider, model = key.split("/", 1)
         inventory.setdefault(provider, {}).setdefault(model, None)
+        origins.setdefault((provider, model), set()).add("prices")
     providers = {}
-    readings = saved_usage(policy_path)
+    fetched = timestamp(cache.get("fetched_at")) if isinstance(cache, dict) else None
+    cache_age = max(0.0, (current - fetched).total_seconds() / 60) if fetched else None
     for provider in dict.fromkeys((*BUILTIN_PROVIDERS, *inventory, *table["accounts"], *table["billing"])):
         known = inventory.get(provider, {})
         scores = sorted({entry["input"] + entry["output"] for key, entry in table["models"].items()
                          if key.split("/", 1)[0] == provider})
         models = []
+        candidates = []
         for model, multiplier in sorted(known.items()):
+            metadata = cache_models.get(model, {}) if provider == "codex" else {}
+            model_origins = origins.get((provider, model), set())
+            discovered = "codex-cache" in model_origins or "confirmed-account" in model_origins
+            if "confirmed-account" in model_origins or ("codex-cache" in model_origins and metadata.get("visibility") != "hide"):
+                candidates.append(model)
+            levels = metadata.get("supported_reasoning_levels", [])
+            efforts = [level["effort"] for level in levels if isinstance(level, dict)
+                       and isinstance(level.get("effort"), str)] if isinstance(levels, list) else []
             price = table["models"].get(f"{provider}/{model}")
             rank = None
             if price:
@@ -1643,9 +1667,18 @@ def models_payload(policy_path: Path, now: Optional[dt.datetime] = None) -> Dict
                 "cacheWrite": price.get("cacheWrite") if price else None, "rank": rank,
                 "costMultiplier": multiplier, "asOf": price["asOf"] if price else None,
                 "stale": (current.date() - dt.date.fromisoformat(price["asOf"])).days > PRICE_STALE_DAYS if price else False,
-                "missing": price is None, "source": price["source"] if price else None})
+                "missing": price is None, "priceMissing": price is None,
+                "source": price["source"] if price else None,
+                "inventorySources": sorted(model_origins), "discovered": discovered,
+                "displayName": metadata.get("display_name"), "visibility": metadata.get("visibility"),
+                "supportedEfforts": efforts, "defaultEffort": metadata.get("default_reasoning_level")})
         providers[provider] = {"billing": table["billing"].get(provider), "models": models,
-            "account": account_payload(provider, table, readings.get(provider, {}), current)}
+            "account": accounts.get(provider) or account_payload(provider, table, readings.get(provider, {}), current),
+            "discovery": {"candidates": candidates, "source": str(cache_path) if provider == "codex" else None,
+                "observedAt": fetched.isoformat() if provider == "codex" and fetched else None,
+                "ageMinutes": round(cache_age, 2) if provider == "codex" and cache_age is not None else None,
+                "stale": cache_age is None or cache_age > 24 * 60 if provider == "codex" else None,
+                "accountAccessVerified": False}}
     return {"version": 1, "currency": table["currency"], "unit": table["unit"],
             "overridePath": table["overridePath"], "providers": providers}
 

@@ -30,6 +30,8 @@ Execute scripts/orchestrate.py doctor se o ambiente puder não estar preparado o
 
 Se não houver política configurada ou o usuário pedir setup, siga [references/onboarding.md](references/onboarding.md): inventarie CLIs, modelos e rotas; proponha os perfis base, savings e aggressive; obtenha aprovação antes de salvar. Grave somente preferências confirmadas. Um proxy como 9router transporta tráfego e não é worker.
 
+Se o usuário pedir para refazer o setup ou reconfigurar, refaça a comparação com os modelos descobertos. A seleção antiga é referência, não um filtro do catálogo; não a reapresente como proposta nova sem reavaliar alternativas. Preserve restrições explícitas do usuário e justifique escolhas antes da aprovação.
+
 A ausência de setup não bloqueia uma tarefa em andamento: rode doctor, use os CLIs autenticados com os playbooks incluídos, informe isso em uma linha e continue. Ofereça o onboarding depois; não grave preferências antes do aceite.
 
 Interprete pedidos de configuração assim:
@@ -89,6 +91,8 @@ Ligue o modo apenas quando o usuário pedir $batuta on, /orchestrator on ou uma 
 Continue do estado existente. Use conversa, especificação, plano, lista e diff como plano; aponte workers para arquivos em vez de copiar conteúdos. Preserve fases e verificações do fluxo em andamento. Crie new somente para trabalho delegado; mantenha trabalho pequeno, acoplado ou ambíguo com o agente principal e explique em uma linha.
 
 ## Escolha e execução dos playbooks
+
+Antes de propor ou revisar perfis, confira o inventário descoberto por `models`, incluindo origem, atualidade e esforços conhecidos. Considere os candidatos visíveis relevantes e explique as escolhas; nomes fixos dos playbooks não são o catálogo da conta. Preço ausente (`priceMissing`, ou o alias `missing`) não significa modelo indisponível, e `rank` é preço relativo, não capacidade. Siga [references/onboarding.md](references/onboarding.md).
 
 Antes de planejar, rode scripts/orchestrate.py playbook --pick para ver perfil, ordem, condições e resumos. Depois rode playbook <id> para ver fases, níveis resolvidos, cotas e orçamento. Ambos aceitam --json. O comando playbook sem ID mostra o arquivo completo apenas para edição ou onboarding. Consulte [references/playbooks.md](references/playbooks.md).
 

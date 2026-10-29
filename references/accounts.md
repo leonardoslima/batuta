@@ -14,6 +14,16 @@ histórico compatível. O preço da assinatura não determina sua capacidade.
 3. Para outros provedores e capacidades, use dados locais ou respostas
    documentadas das ferramentas. Não leia credenciais nem inicie workers apenas
    para descobrir o plano. Um catálogo de modelos não comprova acesso da conta.
+
+`models` separa origem do inventário e preço: `inventorySources` identifica
+playbooks, preços, cache Codex ou cadastro confirmado; `discovered` indica
+evidência no cache/cadastro. `discovery.candidates` inclui modelos visíveis do
+cache e modelos do cadastro confirmado, com os esforços quando informados.
+Não é garantia de acesso atual: o cache pode pertencer a outra sessão/conta.
+`discovery.accountAccessVerified` permanece falso; concilie com o host e a conta.
+O campo `stale` da descoberta é um aviso após 24 horas, ou sem data, não uma
+regra de validade do fornecedor. Não elimine um candidato por faltar preço:
+`priceMissing` e o alias legado `missing` se referem exclusivamente ao preço.
 4. Pergunte apenas pelo que faltar. Plano, valor, moeda, periodicidade, modelos,
    limites e extras podem continuar desconhecidos. Não bloqueie uma tarefa
    apenas para completar campos opcionais.

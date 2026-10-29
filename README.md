@@ -70,6 +70,11 @@ lê o nome do plano quando a telemetria Codex o informa; outros provedores
 dependem das evidências disponíveis ao agente ou da resposta do usuário.
 Previsões separam históricos de planos diferentes. Veja [contas e planos](references/accounts.md).
 
+A descoberta de modelos informa origem, atualidade do cache e esforços conhecidos.
+Um modelo sem preço cadastrado continua candidato; preço ausente não significa
+indisponibilidade na assinatura. O cache é uma evidência para conferir, sem
+garantir por si só o acesso atual da conta.
+
 Depois, descreva uma tarefa e suas restrições:
 
 ```text
