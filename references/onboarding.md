@@ -21,7 +21,7 @@ o que foi mantido e por quê. Não altere a configuração até aprovar a propos
 4. Registre adaptador personalizado apenas quando --help confirmar modo de prompt não interativo. Anote o comando verificado; não adivinhe flags nem credenciais. Adaptadores personalizados não impõem leitura isolada, portanto recebem apenas fases de escrita. Consulte [providers.md](providers.md).
 5. Execute usage. Claude usa eventos rate_limit_event de workers; Codex usa arquivos de sessão. Para outros provedores, peça uso de cota e fim do plano somente quando a política de cotas exigir. Identifique leituras antigas.
 6. Descubra cobrança e plano contratado por provedor em dados locais ou respostas documentadas do CLI/host. `usage` observa `plan_type` quando exposto pela telemetria Codex; isso não revela automaticamente preço, limites ou autorização de extras. Consulte [accounts.md](accounts.md). Pergunte apenas pelos dados ausentes que influenciam a decisão, como plano, capacidades, autorização de extras e preferência de consumo. Ofereça preço como cadastro opcional, explicando em linguagem simples: quanto paga, em qual moeda e se a cobrança é mensal ou anual. Não exija que o usuário descubra limites; use cotas observadas e pergunte por limites desconhecidos somente quando a política exigir. Preserve respostas confirmadas; concilie conflitos com o usuário. Após aprovação, grave `billing` e `accounts` em orquestrador-prices.json, preservando preços existentes. Não deduza capacidade pelo preço nem salve evidência incerta como preferência confirmada.
-7. Execute models para preços e níveis relativos low, mid e high. Para preço necessário ausente ou com mais de 60 dias, consulte somente o site oficial do fornecedor, informe o usuário e grave source e asOf. Nunca estime preço.
+7. Execute models para inventário e snapshots de preços. Faça pesquisa nas fontes oficiais dos provedores considerados, conforme [research.md](research.md), mesmo que a tabela local seja recente. Confirme modalidade, unidades, recursos e esforços suportados; registre evidências e lacunas. `low`, `mid` e `high` no rank do catálogo indicam preço relativo histórico, não capacidade. Grave source e asOf apenas de preços efetivamente verificados. Nunca estime preço ausente ou deduza cota da assinatura pelo preço de API.
 8. Para gateway como 9router, verifique instalação, execução e quais CLIs o usuário deseja rotear. Ele é um nó próprio no diagrama, não um worker. Consulte configuração ou ambiente antes de chamá-lo de ativo. Não o inicie, instale ou reconfigure.
 
 ## 2. Três perfis
@@ -40,9 +40,15 @@ em todos os perfis nem deduza capacidade pelo nome ou pela posição na lista.
 
 | Perfil | Níveis | Ordem | Cota baixa | Parada |
 | --- | --- | --- | --- | --- |
-| base | Modelo usual por nível | CLIs principais do usuário primeiro | 80% | 95% |
-| savings | Um passo mais econômico por nível; baixo multiplicador e cotas separadas para volume | CLI capaz mais econômico primeiro, assinatura escassa por último | 70% | 90% |
-| aggressive | Um passo mais forte por nível; xhigh só em escalonamento | CLIs mais fortes primeiro | 95% | 98% |
+| base | Equilíbrio entre qualidade, tempo e recursos conforme pesquisa | Preferências do usuário e alternativas adequadas à tarefa | 80% | 95% |
+| savings | Menor custo total por resultado aceito; modelo e esforço independentes | Alternativas capazes com evidência de menor uso total | 70% | 90% |
+| aggressive | Maior margem de capacidade dentro dos limites aprovados | Alternativas justificadas por capacidade, acesso e cota | 95% | 98% |
+
+Os percentuais são limites operacionais iniciais ajustáveis, não estimativas da
+capacidade de um modelo. O perfil não determina esforço baixo/alto por nome ou
+preço: avalie a combinação de modelo e esforço para a tarefa e só use opções
+suportadas pelo provedor. Os tiers incluídos no pacote estão vazios; resolva-os
+com pesquisa e confirmação, sem preencher a partir de uma hierarquia fixa.
 
 Prefira modelos explícitos. Se o usuário escolher o padrão do CLI, deixe model vazio e explique o alerta de validate/dry-run, mesmo com effort definido. Só atribua leitura isolada a CLI que a implemente. Grave tiers na cópia dos playbooks, nunca em policy.modelTiers ou pelo caminho legado policy set --cheap-model; overrides legados já existentes ainda prevalecem.
 

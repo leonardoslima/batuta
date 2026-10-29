@@ -1680,7 +1680,9 @@ def models_payload(policy_path: Path, now: Optional[dt.datetime] = None) -> Dict
                 "stale": cache_age is None or cache_age > 24 * 60 if provider == "codex" else None,
                 "accountAccessVerified": False}}
     return {"version": 1, "currency": table["currency"], "unit": table["unit"],
-            "overridePath": table["overridePath"], "providers": providers}
+            "overridePath": table["overridePath"], "providers": providers,
+            "pricingEvidence": {"mode": "local-snapshot", "networkChecked": False,
+                                "requiresOfficialResearch": True}}
 
 
 def preview_usage_cost(workers: Sequence[Dict[str, Any]], policy_path: Path) -> Dict[str, Any]:
@@ -1733,7 +1735,7 @@ def preview_usage_cost(workers: Sequence[Dict[str, Any]], policy_path: Path) -> 
     return {"workers": estimates, "warnings": warnings + forecast_warnings, "quotaForecast": forecast, "accounts": accounts,
         "total": round(sum(values), 8) if values and all(value is not None for value in values) else None,
         "asOf": sorted({entry["listPriceAsOf"] for entry in estimates if entry["listPriceAsOf"]}),
-        "label": "Standard short-context API list-price estimate for prompt input only; excludes output, cache and provider-side context; not CLI-reported cost"}
+        "label": "Cached standard short-context API list-price estimate for prompt input only; not live-verified; excludes output, cache and provider-side context; not CLI-reported cost"}
 
 
 def normalized_strategy(value: Any, label: str) -> str:

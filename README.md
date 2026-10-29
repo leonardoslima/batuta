@@ -75,6 +75,12 @@ Um modelo sem preço cadastrado continua candidato; preço ausente não signific
 indisponibilidade na assinatura. O cache é uma evidência para conferir, sem
 garantir por si só o acesso atual da conta.
 
+O setup faz pesquisa nas fontes oficiais para propor as combinações de modelo e
+esforço. Os playbooks distribuídos definem o processo e deixam essas escolhas em
+aberto; perfis pessoais são registrados após aprovação. A tabela local de preços
+é um snapshot histórico, e o runner não consulta a internet automaticamente.
+Veja o [protocolo de pesquisa](references/research.md), incluindo o fluxo sem rede.
+
 Depois, descreva uma tarefa e suas restrições:
 
 ```text

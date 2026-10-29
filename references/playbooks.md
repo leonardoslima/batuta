@@ -53,6 +53,12 @@ Custom não garante leitura isolada; auto não lhe atribui fase readOnly. Insira
 
 O perfil ativo substitui order, quota e tiers sem alterar as fases. Provedores omitidos em order ficam por último. base geralmente não tem overrides. Confirme mudanças contínuas antes de alterar profile. Overrides legados policy.modelTiers ainda prevalecem; policy set --cheap-model é caminho antigo.
 
+Os tiers distribuídos não predefinem modelos ou esforços. A pesquisa descrita
+em [research.md](research.md) e a tarefa resolvem essas escolhas antes da rodada;
+uma cópia pessoal aprovada pode registrá-las. Reavalie configurações antigas no
+setup/reconfiguração sem sobrescrevê-las automaticamente. O runner continua
+aceitando cópias antigas e escolhas explícitas do padrão do CLI.
+
 Cada fase contém:
 
 | Campo | Significado |

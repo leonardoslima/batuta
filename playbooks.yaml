@@ -1,6 +1,7 @@
 # Playbooks de estratégia do Orquestrador.
 # O agente principal lê este arquivo (scripts/orchestrate.py playbook) antes de planejar ou delegar.
 # Uma cópia do usuário criada com `playbook --init` substitui este arquivo por inteiro.
+# Modelo e esforço são resolvidos pela pesquisa; os tiers vazios não escolhem defaults de CLI.
 # Referência dos campos e condições: references/playbooks.md
 
 version: 1
@@ -14,8 +15,8 @@ principles:
   - Divida por unidade independente, sem fragmentar além disso; briefings excessivos aumentaram o custo no exemplo da Anthropic.
   - Eleve o nível após falha de checagem, nunca pela própria afirmação do worker; um nível por vez e uma vez por unidade.
   - Revise o diff concluído, nunca o trabalho em andamento.
-  - Mantenha modelo e esforço fixos por sessão; mudar descarta o cache do prompt.
-  - Use xhigh somente em escalada e evite max.
+  - Preserve sessões quando adequado, mas reavalie modelo e esforço ao mudar a necessidade; não suponha comportamento de cache igual entre provedores.
+  - Escolha modelo e esforço separadamente, com evidências atuais da tarefa, das capacidades suportadas e dos recursos disponíveis.
   - Limite cada execução com orçamento e compare custo por tarefa concluída.
   - Modelos econômicos fazem triagem; julgar correção do código exige nível padrão ou superior.
   - Unidade arriscada não usa nível econômico e seu diff passa por review-gate.
@@ -24,14 +25,14 @@ providers: [claude, codex]
 
 tiers:
   cheap:
-    claude: { model: haiku, effort: low }
-    codex: { effort: low }
+    claude: {}
+    codex: {}
   standard:
-    claude: { model: sonnet, effort: medium }
-    codex: { effort: medium }
+    claude: {}
+    codex: {}
   strong:
-    claude: { model: opus, effort: high }
-    codex: { effort: high }
+    claude: {}
+    codex: {}
 
 quota:
   criticalThreshold: 80
@@ -51,30 +52,15 @@ profile: base
 profiles:
   base:
     name: Base
-    summary: Cada nível usa seu modelo habitual.
+    summary: Equilibre qualidade, tempo e recursos com combinações pesquisadas para a tarefa.
   savings:
     name: Economia
-    summary: Um passo mais econômico em cada nível.
+    summary: Priorize custo total por resultado aceito, sem reduzir esforço automaticamente.
     quota: { criticalThreshold: 70, stopAt: 90 }
-    tiers:
-      standard:
-        claude: { model: haiku, effort: medium }
-        codex: { effort: low }
-      strong:
-        claude: { model: sonnet, effort: high }
-        codex: { effort: medium }
   aggressive:
     name: Agressivo
-    summary: Um passo mais forte em cada nível, usando mais da janela antes de trocar.
+    summary: Priorize margem de capacidade dentro dos limites aprovados, com escolhas justificadas pela pesquisa.
     quota: { criticalThreshold: 95, stopAt: 98 }
-    tiers:
-      cheap:
-        claude: { model: sonnet, effort: low }
-        codex: { effort: medium }
-      standard:
-        claude: { model: opus, effort: medium }
-        codex: { effort: high }
-
 pickOrder:
   - { when: "Tarefa clara e restrita que altera até cerca de 3 arquivos", playbook: direct }
   - { when: "Mudança mecânica com checagem automática", playbook: cascade }
@@ -130,8 +116,6 @@ playbooks:
         does: Implemente uma unidade.
         returns: Arquivos alterados, checagens executadas, falhas e riscos.
         rules:
-          - if: [deep, claude-opus-above:50]
-            use: { model: sonnet, effort: high }
           - if: deep
             use: { tier: strong }
           - if: [risky, light]
@@ -141,7 +125,6 @@ playbooks:
       - id: review
         role: reviewer
         tier: standard
-        provider: codex
         readOnly: true
         runner: economy
         does: Revise o diff concluído conforme o plano e as regras do repositório.
@@ -157,9 +140,7 @@ playbooks:
         does: Corrija a partir do trecho da falha e das notas da revisão.
         rules:
           - if: budget-low
-            use: { tier: standard, effort: high }
-          - if: claude-low
-            use: { provider: codex, effort: xhigh }
+            use: { tier: standard }
 
   direct:
     name: Direto
@@ -224,9 +205,6 @@ playbooks:
         after: replan
         then: recheck
         does: Aplique as etapas revisadas.
-        rules:
-          - if: claude-low
-            use: { provider: codex, effort: xhigh }
 
   plan-big-execute-small:
     name: Planejar amplo, executar pequeno
@@ -294,7 +272,6 @@ playbooks:
       - id: settle
         role: checker
         tier: standard
-        effort: high
         readOnly: true
         runner: economy
         after: scout
@@ -357,9 +334,6 @@ playbooks:
         if: stuck
         does: Leia apenas o estado e os arquivos citados; responda à decisão.
         limit: Até três consultas por tarefa.
-        rules:
-          - if: claude-low
-            use: { provider: codex, effort: xhigh }
       - id: resume
         role: executor
         tier: standard
@@ -411,7 +385,7 @@ playbooks:
         does: Última tentativa com ambos os trechos de falha; relate o resultado de qualquer forma.
         rules:
           - if: budget-low
-            use: { tier: standard, effort: high }
+            use: { tier: standard }
 
   parallel-worktrees:
     name: Worktrees paralelas
@@ -529,9 +503,6 @@ playbooks:
         with: conventions
         does: Procure apenas bugs reais no diff.
         returns: Achados com arquivo:linha e cenário de falha.
-        rules:
-          - if: claude-opus-above:80
-            use: { model: sonnet, effort: high }
       - id: validate
         role: validator
         tier: strong
@@ -582,7 +553,6 @@ playbooks:
       - id: skeptic
         role: skeptic
         tier: standard
-        effort: high
         readOnly: true
         workers: 2
         runner: research

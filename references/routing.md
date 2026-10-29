@@ -2,6 +2,15 @@
 
 Leia ao decidir se vale delegar, escolher estratégia de execução ou atribuir provedores.
 
+## Evidências antes das escolhas
+
+Use [research.md](research.md) para comparar provedores, modalidades, modelos e
+esforços. Arquivos locais registram decisões e evidências com data; não são um
+catálogo definitivo. Modelo econômico não implica esforço baixo, e nenhum
+provedor recebe preferência permanente por ter sido usado nos testes da skill.
+Considere custo por resultado aceito, incluindo verificações e retrabalho, sem
+converter benchmarks públicos em promessa de resultado no projeto.
+
 ## Delegue independência útil
 
 Delegue quando pelo menos duas unidades puderem avançar sem ler resultados inacabados uma da outra. Boas fronteiras: serviço, pacote, área funcional, investigação independente ou revisão de diff já produzido. Mantenha com o agente principal operações de um comando, transformações uniformes em lote, mudanças locais pequenas e cadeias totalmente sequenciais.

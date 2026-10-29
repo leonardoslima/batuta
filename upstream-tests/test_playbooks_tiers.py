@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -107,6 +108,11 @@ class PlaybookSettingsTest(unittest.TestCase):
         self.policy = self.root / "policy.json"
         self.playbooks = self.root / runner.USER_PLAYBOOKS_FILE
         self.bundled = runner.bundled_playbooks_path().read_text(encoding="utf-8")
+        # Explicit user configuration fixture; shipped defaults no longer choose models or efforts.
+        fixture = (ROOT / "upstream-tests" / "fixtures" / "configured-model-tiers.yaml").read_text(encoding="utf-8")
+        configured_tiers, configured_profiles = fixture.split("profiles:\n", 1)
+        self.bundled = re.sub(r"(?ms)^tiers:\n.*?(?=^quota:)", lambda _: configured_tiers, self.bundled)
+        self.bundled = re.sub(r"(?ms)^profiles:\n.*?(?=^pickOrder:)", lambda _: "profiles:\n" + configured_profiles, self.bundled)
         patcher = mock.patch.dict(os.environ, {
             "ALETHE_ORCHESTRATE_POLICY": str(self.policy),
             "ALETHE_ORCHESTRATE_PLAYBOOKS": str(self.playbooks),
@@ -132,6 +138,8 @@ class PlaybookSettingsTest(unittest.TestCase):
         }]}
 
     def resolve(self, raw, policy=None):
+        if not self.playbooks.exists():
+            self.write_playbooks(self.bundled)
         return runner.validate_plan(raw, self.root / "plan.json", policy, policy_path=self.policy)
 
     def test_active_profile_merges_per_tier_provider_and_field(self):
@@ -162,7 +170,7 @@ class PlaybookSettingsTest(unittest.TestCase):
         self.write_playbooks(self.bundled.replace("    name: Base", "    order: [codex]\n    name: Base"))
         self.assertEqual(runner.playbook_settings(self.policy)["providers"], ["codex", "claude"])
 
-    def test_all_three_tiers_resolve_from_bundled_playbooks(self):
+    def test_all_three_tiers_resolve_from_configured_playbooks(self):
         for tier, model, effort in (("cheap", "haiku", "low"), ("standard", "sonnet", "medium"), ("strong", "opus", "high")):
             with self.subTest(tier=tier):
                 worker = self.resolve(self.plan(tier=tier))["workers"][0]
@@ -301,7 +309,7 @@ class PlaybookSettingsTest(unittest.TestCase):
     def test_plain_playbook_and_path_stay_compatible_and_unknown_id_is_clear(self):
         code, output, errors = self.call("playbook", "--policy", self.policy)
         self.assertEqual(code, 0, errors)
-        self.assertIn(self.bundled.rstrip(), output)
+        self.assertIn(runner.bundled_playbooks_path().read_text(encoding="utf-8").rstrip(), output)
         code, output, errors = self.call("playbook", "--path", "--policy", self.policy)
         self.assertEqual(code, 0, errors)
         self.assertEqual(Path(output.strip()), runner.bundled_playbooks_path())

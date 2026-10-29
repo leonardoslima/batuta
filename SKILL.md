@@ -12,7 +12,7 @@ Leia primeiro [references/orca-integration.md](references/orca-integration.md) p
 Conclua o trabalho com o menor contexto possível no agente principal e com os workers capazes de menor custo, ou com modelos mais fortes quando o usuário pedir. Planeje unidades delimitadas, delegue somente quando compensar e integre resultados com evidências.
 
 - **Playbook:** fases, papéis e verificações.
-- **Perfil:** modelos de cada nível em base, savings e aggressive.
+- **Perfil:** objetivos base, savings e aggressive, traduzidos em modelos e esforços conforme pesquisa, tarefa e recursos.
 - **Objetivo:** intensidade da delegação enquanto um modo está ligado: save, balanced ou max.
 - **Estratégia de execução:** composição de uma rodada: economy, balanced, quality, research, parallel ou rescue.
 
@@ -33,6 +33,12 @@ Se não houver política configurada ou o usuário pedir setup, siga [references
 Se o usuário pedir para refazer o setup ou reconfigurar, refaça a comparação com os modelos descobertos. A seleção antiga é referência, não um filtro do catálogo; não a reapresente como proposta nova sem reavaliar alternativas. Preserve restrições explícitas do usuário e justifique escolhas antes da aprovação.
 
 A ausência de setup não bloqueia uma tarefa em andamento: rode doctor, use os CLIs autenticados com os playbooks incluídos, informe isso em uma linha e continue. Ofereça o onboarding depois; não grave preferências antes do aceite.
+
+Os playbooks incluídos não fixam modelos ou esforços por tier. Antes de delegar,
+resolva esses campos conforme [references/research.md](references/research.md),
+usando pesquisa oficial e evidência da conta. Se o usuário optar explicitamente
+pelo padrão do CLI, registre essa escolha e a incerteza; tier vazio não é uma
+recomendação para aceitar silenciosamente qualquer modelo/esforço padrão.
 
 Interprete pedidos de configuração assim:
 
@@ -92,6 +98,8 @@ Continue do estado existente. Use conversa, especificação, plano, lista e diff
 
 ## Escolha e execução dos playbooks
 
+Faça pesquisa oficial no setup/reconfiguração e quando informação essencial estiver ausente, antiga ou conflitante. A tabela local é snapshot, não fonte permanente. Siga [references/research.md](references/research.md) para fontes, modalidades de cobrança, comparação independente de modelo/esforço e reaproveitamento de evidências.
+
 Antes de propor ou revisar perfis, confira o inventário descoberto por `models`, incluindo origem, atualidade e esforços conhecidos. Considere os candidatos visíveis relevantes e explique as escolhas; nomes fixos dos playbooks não são o catálogo da conta. Preço ausente (`priceMissing`, ou o alias `missing`) não significa modelo indisponível, e `rank` é preço relativo, não capacidade. Siga [references/onboarding.md](references/onboarding.md).
 
 Antes de planejar, rode scripts/orchestrate.py playbook --pick para ver perfil, ordem, condições e resumos. Depois rode playbook <id> para ver fases, níveis resolvidos, cotas e orçamento. Ambos aceitam --json. O comando playbook sem ID mostra o arquivo completo apenas para edição ou onboarding. Consulte [references/playbooks.md](references/playbooks.md).
@@ -122,7 +130,7 @@ Adapte fases, provedores, modelos, estratégias e orçamento ao resultado ou ao 
 2. Execute scripts/orchestrate.py probe e escolha provedores disponíveis. Leia [references/providers.md](references/providers.md) para Agy, Kimi, retomada de sessão ou CLI personalizado.
 3. Atribua arquivos distintos aos writers. Isole writers concorrentes em worktrees; um writer único pode usar o checkout atual preservando alterações existentes.
 4. Crie um plano JSON versão 1 fora do repositório. scaffold <strategy> --workers N gera um esqueleto válido. Use provider: auto somente quando a troca aprovada de provedor puder decidir. Coloque limites da rodada em budget; para todas as rodadas, use o comando budget. Inclua title, playbook, phase e why no plano e um why curto em cada worker. Prepare os briefs conforme [references/briefs.md](references/briefs.md). Codex e Claude iniciam sem servidores MCP; mcp: true só quando o brief precisar. Valide pelo esquema ou por validate.
-5. Execute models. Para preço necessário ausente ou com mais de 60 dias, consulte apenas a página oficial do fornecedor e registre source e asOf em orquestrador-prices.json; não estime. Confira dry-run: estratégia, provedores, concorrência, tokens, orçamento, listPriceEstimateUsd e quotaForecast. Resolva ou explique alertas. Se o usuário pedir a arquitetura, salve dry-run --write, gere SVG com scripts/diagram.py e mostre antes de iniciar workers; use somente rotas de proxy confirmadas.
+5. Execute models e faça a pesquisa necessária conforme references/research.md. No setup/reconfiguração, confira as fontes oficiais mesmo que o snapshot local seja recente; nas rodadas seguintes, reaproveite evidências pertinentes e pesquise lacunas ou mudanças. Registre source e asOf dos preços efetivamente verificados em orquestrador-prices.json; não estime preço ausente. Confira dry-run: estratégia, provedores, concorrência, tokens, orçamento, listPriceEstimateUsd e quotaForecast. A estimativa do runner usa snapshot local sem consulta de rede; explique limites e alertas. Se o usuário pedir a arquitetura, salve dry-run --write, gere SVG com scripts/diagram.py e mostre antes de iniciar workers; use somente rotas de proxy confirmadas.
 6. Crie a rodada uma vez com new "<título>" --playbook <nome> --why "<motivo>" --lead <CLI>:<modelo>. Inicie cada fase com run <plano> --in current --detach e espere com wait --timeout N (até 540 segundos) até done ser true. Nunca use execução em primeiro plano com timeout curto. stop encerra processos remanescentes; o runner limita concorrência e orçamento e mantém worktrees para revisão.
 7. Inspecione state.json e cada outcome.json (workerStatus, failureKind e readOnlyViolation primeiro), depois result.md e diff.patch. Logs brutos só para diagnóstico.
 8. Integre alterações revisadas, valide o checkout combinado, marque cada resultado como used, partial ou discarded e remova somente dados temporários e worktrees cujo conteúdo útil foi tratado.

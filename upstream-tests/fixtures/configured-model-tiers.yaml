@@ -1,0 +1,38 @@
+tiers:
+  cheap:
+    claude: { model: haiku, effort: low }
+    codex: { effort: low }
+  standard:
+    claude: { model: sonnet, effort: medium }
+    codex: { effort: medium }
+  strong:
+    claude: { model: opus, effort: high }
+    codex: { effort: high }
+
+profiles:
+  base:
+    name: Base
+    summary: Cada nível usa seu modelo habitual.
+  savings:
+    name: Economia
+    summary: Um passo mais econômico em cada nível.
+    quota: { criticalThreshold: 70, stopAt: 90 }
+    tiers:
+      standard:
+        claude: { model: haiku, effort: medium }
+        codex: { effort: low }
+      strong:
+        claude: { model: sonnet, effort: high }
+        codex: { effort: medium }
+  aggressive:
+    name: Agressivo
+    summary: Um passo mais forte em cada nível, usando mais da janela antes de trocar.
+    quota: { criticalThreshold: 95, stopAt: 98 }
+    tiers:
+      cheap:
+        claude: { model: sonnet, effort: low }
+        codex: { effort: medium }
+      standard:
+        claude: { model: opus, effort: medium }
+        codex: { effort: high }
+
