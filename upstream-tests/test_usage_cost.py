@@ -175,9 +175,10 @@ class UsageCostTest(unittest.TestCase):
         workers = [{"id": "a", "provider": "claude", "model": "sonnet", "estimatedPromptTokens": 1000},
                    {"id": "b", "provider": "claude", "model": "unpriced", "estimatedPromptTokens": 100}]
         advisory = runner.preview_usage_cost(workers, self.policy)
-        self.assertEqual(len(advisory["warnings"]), 2)
-        self.assertIn("claude is at 86%", advisory["warnings"][0])
-        self.assertIn("consider codex at 33%", advisory["warnings"][0])
+        quota_warnings = [warning for warning in advisory["warnings"] if "claude is at 86%" in warning]
+        self.assertEqual(len(quota_warnings), 2)
+        self.assertIn("consider codex at 33%", quota_warnings[0])
+        self.assertTrue(any("account details unknown" in warning for warning in advisory["warnings"]))
         price = runner.load_prices(self.policy)["models"]["claude/sonnet"]["input"]
         self.assertEqual(advisory["workers"][0]["listPriceEstimateUsd"], 1000*price/1000000)
         self.assertIsNone(advisory["total"])

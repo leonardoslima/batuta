@@ -98,9 +98,11 @@ Pule fases cujo if falhe. Entre alternativas unidas por with, execute a primeira
 
 ## Cotas
 
+Antes de escolher agentes, consulte [references/accounts.md](references/accounts.md): plano contratado, capacidades verificadas, preferência de consumo e autorização de extras influenciam provedor, modelo, quantidade de workers e tamanho das rodadas. Descubra por evidências locais/CLI e pergunte apenas pelos dados ausentes. Mensalidade não determina capacidade. Concilie conflitos antes de depender do cadastro; desconhecido não significa acesso ou cota ilimitados. Não dependa de extras pagos sem autorização.
+
 Antes de cada rodada, consulte usage. Codex usa dados das sessões; Claude usa rate_limit_event dos workers. Se Claude for usado e a leitura estiver ausente ou com mais de 30 minutos, usage --refresh-claude faz uma chamada curta ao Haiku.
 
-Leia quotaForecast em dry-run. Com menos de duas amostras adequadas, trate a previsão como desconhecida. Se o provedor alcançar quota.criticalThreshold, passe a tarefa ao próximo capaz no mesmo nível e informe percentuais e reset em uma linha. Aplique quota.whenSpare quando uma cota de assinatura expiraria sem uso.
+Leia quotaForecast e accounts em dry-run. O histórico é separado pelo contexto do plano; amostras incompatíveis após uma mudança não entram na previsão. Com menos de duas amostras adequadas, trate a previsão como desconhecida. Se o provedor alcançar quota.criticalThreshold, passe a tarefa ao próximo capaz no mesmo nível e informe percentuais e reset em uma linha. Aplique quota.whenSpare quando uma cota de assinatura expiraria sem uso.
 
 Peça decisão antes de iniciar se todos os provedores estiverem baixos, se a alternativa exigir reduzir o nível necessário ou se a previsão ultrapassar quota.stopAt. Informe necessidade, saldo e reset; ofereça esperar, trocar provedor, usar nível menor apenas em unidades seguras, executar somente unidades que caibam ou conectar outro CLI. run --allow-low-quota exige autorização explícita. run recusa provedores no limite e marca unidades pendentes como quota_low; rate_limited indica limite atingido pelo worker.
 

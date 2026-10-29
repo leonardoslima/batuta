@@ -5,3 +5,7 @@ venv/
 .env
 .env.*
 !.env.example
+orquestrador-prices.json
+alethe-prices.json
+orquestrador-usage.json
+alethe-usage.json

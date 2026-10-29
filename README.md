@@ -63,6 +63,13 @@ O onboarding inspeciona as capacidades disponíveis, CLIs e modelos, pergunta
 pelas preferências necessárias e propõe os perfis `base`, `savings` e
 `aggressive`. Preferências só são salvas após aprovação.
 
+Também considera o plano contratado: descobre o que estiver exposto pelas
+ferramentas e pergunta pelos dados ausentes. Nome do plano, preço, capacidades,
+extras e preferência de consumo ajudam a dimensionar as rodadas. O runner já
+lê o nome do plano quando a telemetria Codex o informa; outros provedores
+dependem das evidências disponíveis ao agente ou da resposta do usuário.
+Previsões separam históricos de planos diferentes. Veja [contas e planos](references/accounts.md).
+
 Depois, descreva uma tarefa e suas restrições:
 
 ```text

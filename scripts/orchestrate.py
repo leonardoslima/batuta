@@ -1096,8 +1096,89 @@ def codex_quota(thread_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         if not windows:
             continue
         observed = timestamp(event.get("timestamp")) or timestamp(stat.st_mtime)
-        return {"provider": "codex", "windows": windows, "observedAt": observed.isoformat(), "source": str(path)}
+        reading = {"provider": "codex", "windows": windows, "observedAt": observed.isoformat(), "source": str(path)}
+        plan = limits.get("plan_type")
+        if isinstance(plan, str) and plan.strip():
+            reading["accountObservation"] = {"plan": plan.strip(), "source": str(path),
+                                             "observedAt": observed.isoformat()}
+        return reading
     return None
+
+
+def validate_accounts(accounts: Any) -> Dict[str, Any]:
+    if not isinstance(accounts, dict):
+        raise PlanError("accounts must be an object keyed by provider")
+    allowed = {"plan", "price", "source", "observedAt", "confirmed", "models", "limits",
+               "extraUsageEnabled", "extraUsageAuthorized", "consumption"}
+    for provider, account in accounts.items():
+        label = f"accounts.{provider}"
+        if not isinstance(account, dict) or set(account) - allowed:
+            raise PlanError(f"{label} must be an account object with supported fields")
+        for key in ("plan", "source"):
+            if key in account and (not isinstance(account[key], str) or not account[key].strip()):
+                raise PlanError(f"{label}.{key} must be a nonempty string")
+        if not account.get("source") or timestamp(account.get("observedAt")) is None:
+            raise PlanError(f"{label} requires source and an ISO observedAt timestamp")
+        for key in ("confirmed", "extraUsageEnabled", "extraUsageAuthorized"):
+            if key in account and type(account[key]) is not bool:
+                raise PlanError(f"{label}.{key} must be boolean")
+        if "consumption" in account and account["consumption"] not in ("preserve", "balanced", "use-before-reset"):
+            raise PlanError(f"{label}.consumption must be preserve, balanced or use-before-reset")
+        models = account.get("models", [])
+        if not isinstance(models, list) or not all(isinstance(model, str) and model.strip() for model in models):
+            raise PlanError(f"{label}.models must be a list of model IDs")
+        limits = account.get("limits", {})
+        if not isinstance(limits, dict) or not all(isinstance(key, str) and key and
+            ((type(value) in (int, float) and math.isfinite(value) and value >= 0) or
+             (isinstance(value, str) and value.strip())) for key, value in limits.items()):
+            raise PlanError(f"{label}.limits must map names to nonnegative numbers or descriptions")
+        price = account.get("price")
+        if price is not None:
+            if (not isinstance(price, dict) or set(price) != {"amount", "currency", "period"} or
+                type(price.get("amount")) not in (int, float) or not math.isfinite(price["amount"]) or price["amount"] < 0 or
+                not isinstance(price.get("currency"), str) or re.fullmatch(r"[A-Z]{3}", price["currency"]) is None or
+                price.get("period") not in ("month", "year", "week", "day")):
+                raise PlanError(f"{label}.price requires nonnegative amount, three-letter currency and month/year/week/day period")
+    return accounts
+
+
+def account_payload(provider: str, table: Dict[str, Any], reading: Dict[str, Any],
+                    now: Optional[dt.datetime] = None) -> Dict[str, Any]:
+    configured = table["accounts"].get(provider, {})
+    observation = reading.get("accountObservation", {})
+    configured_at = timestamp(configured.get("observedAt"))
+    observed_at = timestamp(observation.get("observedAt"))
+    if observed_at is None or (configured_at and observed_at < configured_at):
+        observation = {}
+    configured_plan = configured.get("plan")
+    plan = observation.get("plan") or configured_plan
+    conflict = bool(observation.get("plan") and configured_plan and
+                    observation["plan"].casefold() != configured_plan.casefold())
+    evidence = observation or configured
+    current = now or dt.datetime.now(dt.timezone.utc)
+    age = (current - timestamp(evidence["observedAt"])).total_seconds() / 60 if evidence else None
+    # A discovered plan never grants the capabilities or spending permissions of a conflicting saved plan.
+    capabilities = {} if conflict else configured
+    result = {"billing": table["billing"].get(provider), "plan": plan,
+        "configuredPlan": configured_plan, "price": capabilities.get("price"),
+        "source": evidence.get("source"), "observedAt": evidence.get("observedAt"),
+        "confirmed": bool(configured.get("confirmed") and not conflict and configured_plan),
+        "observationStale": bool(observation and age is not None and age > USAGE_STALE_MINUTES),
+        "conflict": conflict, "models": capabilities.get("models", []), "limits": capabilities.get("limits", {}),
+        "extraUsageEnabled": capabilities.get("extraUsageEnabled"),
+        "extraUsageAuthorized": bool(capabilities.get("confirmed") and capabilities.get("extraUsageAuthorized", False)),
+        "consumption": configured.get("consumption", "balanced")}
+    result["missing"] = [key for key in ("billing", "plan", "price", "source", "observedAt", "extraUsageEnabled")
+                         if result[key] is None]
+    if not result["models"]:
+        result["missing"].append("models")
+    if not result["limits"]:
+        result["missing"].append("limits")
+    # Dates and preferences do not change capacity. Plans, billing and verified capabilities do.
+    capacity = {key: result[key] for key in ("billing", "plan", "price", "models", "limits")}
+    result["context"] = (hashlib.sha256(json.dumps(capacity, sort_keys=True).encode()).hexdigest()
+                         if plan else None)
+    return result
 
 
 def usage_file(policy_path: Path) -> Dict[str, Any]:
@@ -1154,7 +1235,16 @@ def save_usage(policy_path: Path, quota: Optional[Dict[str, Any]]) -> None:
             if observed is None:
                 raise PlanError("quota.observedAt must be an ISO timestamp")
             if old is None or observed >= old:
-                providers[provider] = quota
+                refreshed = {key: value for key, value in quota.items() if key != "accountContext"}
+                if "accountObservation" not in refreshed and previous.get("accountObservation"):
+                    refreshed["accountObservation"] = previous["accountObservation"]
+                original = {key: value for key, value in previous.items() if key != "accountContext"}
+                # A repeated telemetry event still belongs to the plan in effect when first seen.
+                if observed != old or refreshed != original:
+                    account = account_payload(provider, load_prices(policy_path), refreshed)
+                    providers[provider] = refreshed
+                    if account["context"] is not None:
+                        providers[provider]["accountContext"] = account["context"]
         write_usage_file(policy_path, {**data, "providers": providers})
 
 
@@ -1172,9 +1262,11 @@ def usage_payload(policy_path: Path, refresh: bool = True, now: Optional[dt.date
         save_usage(policy_path, codex_quota())
     threshold, stop = quota_thresholds(policy_path)
     readings = saved_usage(policy_path)
+    table = load_prices(policy_path)
     providers = {}
-    for provider in BUILTIN_PROVIDERS:
+    for provider in dict.fromkeys((*BUILTIN_PROVIDERS, *table["accounts"], *table["billing"])):
         reading = readings.get(provider, {})
+        account = account_payload(provider, table, reading, current)
         observed = timestamp(reading.get("observedAt"))
         age = max(0.0, (current - observed).total_seconds() / 60) if observed else None
         windows = {}
@@ -1193,7 +1285,9 @@ def usage_payload(policy_path: Path, refresh: bool = True, now: Optional[dt.date
             "ageMinutes": round(age, 2) if age is not None else None,
             "low": any(window["low"] for window in main), "blocked": any(window["blocked"] for window in main),
             "stale": age is None or age > USAGE_STALE_MINUTES, "source": reading.get("source"),
-            "missing": not windows, "reset": any(window["reset"] for window in windows.values())}
+            "missing": not windows, "reset": any(window["reset"] for window in windows.values()),
+            "account": account, "accountContext": account["context"],
+            "accountReadingCompatible": reading.get("accountContext") == account["context"]}
     return {"version": 1, "criticalThreshold": threshold, "stopAt": stop,
             "cachePath": str(policy_path.with_name(USAGE_FILE)), "providers": providers}
 
@@ -1327,6 +1421,8 @@ def quota_samples(
         start, end = before.get(provider), after.get(provider)
         if not mine or not start or not end:
             continue
+        if start.get("accountContext") != end.get("accountContext"):
+            continue
         opened, closed = timestamp(start["observedAt"]), timestamp(end["observedAt"])
         # Claude readings come only from workers, so an old one would hide the lead's own use
         if closed <= opened or (provider == "claude" and (started - opened).total_seconds() > USAGE_STALE_MINUTES * 60):
@@ -1339,7 +1435,8 @@ def quota_samples(
         if windows:
             models = {worker["model"] for worker in mine}
             samples.append({"provider": provider, "model": models.pop() if len(models) == 1 else None,
-                            "workers": len(mine), "observedAt": end["observedAt"], "perWorker": windows})
+                            "workers": len(mine), "observedAt": end["observedAt"], "perWorker": windows,
+                            "accountContext": end.get("accountContext")})
     return samples
 
 
@@ -1351,8 +1448,14 @@ def quota_forecast(workers: Sequence[Dict[str, Any]], policy_path: Path, usage: 
         if not mine:
             continue
         reading = usage["providers"][provider]
-        history = [sample for sample in samples if sample["provider"] == provider]
-        entry: Dict[str, Any] = {"workers": len(mine), "samples": len(history), "windows": {}}
+        context = reading.get("accountContext")
+        history = [sample for sample in samples if sample["provider"] == provider
+                   and sample.get("accountContext") == context]
+        account = reading.get("account", {})
+        if not reading.get("accountReadingCompatible", True) or account.get("conflict") or account.get("observationStale"):
+            history = []
+        entry: Dict[str, Any] = {"workers": len(mine), "samples": len(history), "windows": {},
+                                 "accountContext": context}
         for name in MAIN_QUOTA_WINDOWS:
             if name not in reading["windows"]:
                 continue
@@ -1390,6 +1493,10 @@ def usage_summary(payload: Dict[str, Any]) -> List[str]:
             parts.append(f"{name} {window['usedPercent']:g}% (reset passed)" if window["reset"]
                          else f"{name} {window['usedPercent']:g}% (resets {reset})")
         detail = "; ".join(parts) if parts else "no reading"
+        account = reading.get("account", {})
+        detail += f"; plan {account.get('plan') or 'unknown'}"
+        if account.get("conflict"):
+            detail += "; plan conflicts with saved configuration; confirm with user"
         flags = [name for name in ("low", "blocked", "stale") if reading[name]]
         lines.append(f"Usage {provider}: {detail}" + (f" [{', '.join(flags)}]" if flags else ""))
     return lines
@@ -1418,6 +1525,7 @@ def load_prices(policy_path: Path) -> Dict[str, Any]:
         raise PlanError(f"{bundled} must contain a models object")
     models = dict(models)
     billing = {}
+    accounts = {}
     override = policy_path.with_name(USER_PRICES_FILE)
     if not override.exists():
         override = policy_path.with_name(LEGACY_USER_PRICES_FILE)
@@ -1430,6 +1538,7 @@ def load_prices(policy_path: Path) -> Dict[str, Any]:
                 raise PlanError(f"price for {key} must be an object")
             models[key] = {**models.get(key, {}), **entry}
         billing = user.get("billing", {})
+        accounts = validate_accounts(user.get("accounts", {}))
     for provider, mode in billing.items():
         if mode not in ("subscription", "api"):
             raise PlanError(f"billing for {provider} must be subscription or api")
@@ -1448,7 +1557,7 @@ def load_prices(policy_path: Path) -> Dict[str, Any]:
             raise PlanError(f"price {key}.asOf must be YYYY-MM-DD")
         if not isinstance(entry.get("source"), str) or not entry["source"].startswith("https://"):
             raise PlanError(f"price {key}.source must be an HTTPS URL")
-    return {**raw, "models": models, "billing": billing, "overridePath": str(override)}
+    return {**raw, "models": models, "billing": billing, "accounts": accounts, "overridePath": str(override)}
 
 
 def playbook_model_inventory(policy_path: Path) -> Dict[str, Dict[str, Optional[float]]]:
@@ -1514,7 +1623,8 @@ def models_payload(policy_path: Path, now: Optional[dt.datetime] = None) -> Dict
         provider, model = key.split("/", 1)
         inventory.setdefault(provider, {}).setdefault(model, None)
     providers = {}
-    for provider in dict.fromkeys((*BUILTIN_PROVIDERS, *inventory)):
+    readings = saved_usage(policy_path)
+    for provider in dict.fromkeys((*BUILTIN_PROVIDERS, *inventory, *table["accounts"], *table["billing"])):
         known = inventory.get(provider, {})
         scores = sorted({entry["input"] + entry["output"] for key, entry in table["models"].items()
                          if key.split("/", 1)[0] == provider})
@@ -1534,7 +1644,8 @@ def models_payload(policy_path: Path, now: Optional[dt.datetime] = None) -> Dict
                 "costMultiplier": multiplier, "asOf": price["asOf"] if price else None,
                 "stale": (current.date() - dt.date.fromisoformat(price["asOf"])).days > PRICE_STALE_DAYS if price else False,
                 "missing": price is None, "source": price["source"] if price else None})
-        providers[provider] = {"billing": table["billing"].get(provider), "models": models}
+        providers[provider] = {"billing": table["billing"].get(provider), "models": models,
+            "account": account_payload(provider, table, readings.get(provider, {}), current)}
     return {"version": 1, "currency": table["currency"], "unit": table["unit"],
             "overridePath": table["overridePath"], "providers": providers}
 
@@ -1543,9 +1654,25 @@ def preview_usage_cost(workers: Sequence[Dict[str, Any]], policy_path: Path) -> 
     table = load_prices(policy_path)
     usage = usage_payload(policy_path, refresh=False)
     warnings = []
+    accounts = {worker["provider"]: usage["providers"].get(worker["provider"], {}).get("account",
+        account_payload(worker["provider"], table, {})) for worker in workers}
+    for provider, account in accounts.items():
+        if account["conflict"]:
+            warnings.append(f"{provider}: observed plan conflicts with saved plan; ask the user before relying on saved capabilities")
+        if account["observationStale"]:
+            warnings.append(f"{provider}: discovered plan reading is stale; refresh or confirm it")
+        if not usage["providers"].get(provider, {}).get("accountReadingCompatible", True):
+            warnings.append(f"{provider}: quota reading belongs to a different plan context; obtain a fresh reading before forecasting")
+        if account["missing"]:
+            warnings.append(f"{provider}: account details unknown: {', '.join(account['missing'])}; do not infer capacity from subscription price")
+        if account["extraUsageEnabled"] and not account["extraUsageAuthorized"]:
+            warnings.append(f"{provider}: paid extra usage is enabled but not authorized; do not rely on paid overflow")
     estimates = []
     for worker in workers:
         provider = worker["provider"]
+        account = accounts[provider]
+        if account["models"] and worker["model"] not in account["models"]:
+            warnings.append(f"{worker['id']}: model {worker['model']} is not in the verified models for {provider}'s plan; verify access before running")
         price = table["models"].get(f"{provider}/{worker['model']}")
         estimates.append({"listPriceEstimateUsd": round(worker["estimatedPromptTokens"] * price["input"] / TOKENS_PER_MILLION, 8) if price else None,
                           "listPriceAsOf": price["asOf"] if price else None})
@@ -1570,7 +1697,7 @@ def preview_usage_cost(workers: Sequence[Dict[str, Any]], policy_path: Path) -> 
         warnings.append(warning)
     forecast, forecast_warnings = quota_forecast(workers, policy_path, usage)
     values = [entry["listPriceEstimateUsd"] for entry in estimates]
-    return {"workers": estimates, "warnings": warnings + forecast_warnings, "quotaForecast": forecast,
+    return {"workers": estimates, "warnings": warnings + forecast_warnings, "quotaForecast": forecast, "accounts": accounts,
         "total": round(sum(values), 8) if values and all(value is not None for value in values) else None,
         "asOf": sorted({entry["listPriceAsOf"] for entry in estimates if entry["listPriceAsOf"]}),
         "label": "Standard short-context API list-price estimate for prompt input only; excludes output, cache and provider-side context; not CLI-reported cost"}
@@ -4427,6 +4554,7 @@ def plan_payload(
         ),
         "listPriceEstimate": {"label": advisory["label"], "asOf": advisory["asOf"]},
         "quotaForecast": advisory["quotaForecast"],
+        "accounts": advisory["accounts"],
         "warnings": plan_warnings(plan) + advisory["warnings"],
     }
 

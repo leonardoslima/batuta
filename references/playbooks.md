@@ -33,6 +33,11 @@ editor grava orquestrador-playbooks.html ao lado da política (ou em --out <arqu
 
 ## Provedores e rotas
 
+Plano contratado, capacidades e preferência de consumo ficam em `accounts` no
+arquivo local de preços, conforme [accounts.md](accounts.md). Consulte `usage`,
+`models` e `accounts` no `dry-run` antes de definir a rodada. Previsões usam
+histórico compatível com o contexto do plano, sem inferir capacidade pelo preço.
+
 claude, codex, agy e kimi têm adaptadores embutidos. CLIs adicionais usam provider custom e entradas em adapters:
 
 | Campo | Significado |
