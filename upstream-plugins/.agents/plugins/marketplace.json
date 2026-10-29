@@ -1,11 +1,11 @@
 {
-  "name": "orquestrador",
+  "name": "batuta",
   "interface": {
-    "displayName": "Orquestrador"
+    "displayName": "Batuta"
   },
   "plugins": [
     {
-      "name": "orquestrador-orchestrate",
+      "name": "batuta",
       "version": "19.0.0",
       "description": "Orquestre agentes CLI com playbooks, controle de uso e relatórios de execução.",
       "source": {

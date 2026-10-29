@@ -1,10 +1,21 @@
 # Orquestração sem Python
 
-Use este procedimento quando Python 3.9+ não estiver disponível ou o usuário dispensar essa dependência. Os playbooks, níveis, contrato dos workers e regras de contexto em [SKILL.md](../SKILL.md) continuam válidos.
+Use este procedimento para workers CLI quando Python 3.9+ não estiver disponível
+ou o usuário dispensar essa dependência. Para agentes nativos disponíveis, siga
+[native-execution.md](native-execution.md) sem exigir Python. As regras comuns
+de [SKILL.md](../SKILL.md) e o contrato de workers CLI em
+[cli-workflow.md](cli-workflow.md), seção Contrato dos workers, continuam válidos.
 
 ## 1. Detectar
 
-Confira versões de Python, Codex, Claude, Agy, Kimi e outros CLIs presentes; autenticação dos provedores pretendidos com tarefa curta; raiz e estado do Git; roteadores configurados. Não inicie nem altere roteadores para sondá-los. No Windows, a cópia do usuário fica em `%APPDATA%\Orquestrador\orquestrador-playbooks.yaml`; em outros sistemas, em `~/.config/orquestrador/orquestrador-playbooks.yaml`. Sem cópia, leia `playbooks.yaml` da skill.
+Confira versões de Python e dos CLIs pertinentes, autenticação por estado local
+ou comando documentado que não inicie worker, raiz e estado do Git e roteadores
+configurados. Instalação não comprova autenticação. Uma tarefa curta de prova
+só cabe dentro da autorização de execução existente; não a inicie apenas para
+descobrir a conta. Não inicie nem altere roteadores para sondá-los. No Windows,
+a cópia do usuário fica em `%APPDATA%\Orquestrador\orquestrador-playbooks.yaml`;
+em outros sistemas, em `~/.config/orquestrador/orquestrador-playbooks.yaml`.
+Sem cópia, leia `playbooks.yaml` da skill.
 
 Leia primeiro perfil, provedores, `pickOrder` e resumos. Depois, somente o playbook escolhido, níveis efetivos e cotas. Leia todo o YAML para edição ou onboarding. Substituições legadas em `policy.modelTiers` ainda prevalecem; grave níveis novos somente na cópia do YAML. Sem configuração salva, siga [onboarding.md](onboarding.md) antes de gravar.
 
@@ -22,7 +33,13 @@ Antes da primeira onda, apresente duas a quatro opções concretas baseadas em `
 
 ## 3. Preparar a execução
 
-Crie `<pasta>/<NN>-<fase>/<worker-id>/` fora do repositório. Em cada pasta, grave `task.md` com o briefing de [briefs.md](briefs.md) e o contrato invariante de SKILL.md. Para escritores concorrentes, crie uma worktree por worker sob `.orquestrador/worktrees/` e, se preciso, inclua `/.orquestrador/worktrees/` em `.git/info/exclude`. Inspecione o estado sujo antes.
+Crie `<pasta>/<NN>-<fase>/<worker-id>/` fora do repositório. Em cada pasta, grave
+`task.md` com o briefing de [briefs.md](briefs.md), as regras comuns de
+[SKILL.md](../SKILL.md) e o contrato de [cli-workflow.md](cli-workflow.md),
+seção Contrato dos workers, incluindo `STATUS:` e `SUMMARY:`. Para escritores
+concorrentes, crie uma worktree por worker sob `.orquestrador/worktrees/` e,
+se preciso, inclua `/.orquestrador/worktrees/` em `.git/info/exclude`.
+Inspecione o estado sujo antes.
 
 ## 4. Iniciar workers
 

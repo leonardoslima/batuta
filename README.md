@@ -9,6 +9,12 @@ acompanha resultados e exige revisão antes de integrar o trabalho dos workers.
 O ponto de entrada é o [SKILL.md](SKILL.md). Este repositório contém a skill
 completa, o runner Python e os recursos de apoio.
 
+O nome de invocação é `batuta`; a descrição da skill identifica pedidos de
+orquestração de agentes de código e operações da Batuta, sem fixar fornecedores.
+O `SKILL.md` direciona a leitura conforme o pedido: consultas não percorrem o
+setup, e execução nativa e workers CLI têm procedimentos separados. O runner
+Python administra workers CLI; agentes nativos são controlados pelo host.
+
 ## Quando usar
 
 - Dividir uma tarefa em unidades independentes com responsabilidades claras.
@@ -109,6 +115,7 @@ Use depois de `$batuta`, conforme o suporte do seu ambiente.
 | `report html` | Gerar e abrir o relatório HTML |
 | `editor` | Abrir o editor offline de playbooks |
 | `stop` | Interromper a rodada atual |
+| `trace list` | Consultar agentes observados e lacunas de medição |
 | `on` / `off` | Ligar ou desligar o modo contínuo no projeto |
 | `help` | Consultar os comandos disponíveis |
 
@@ -121,8 +128,11 @@ O modo contínuo é opcional e depende de pedido explícito. Consulte o
 - **Runner CLI:** requer Python 3.9+ e os CLIs dos provedores escolhidos,
   instalados e autenticados. O runner usa a biblioteca padrão do Python.
 - **Sem Python:** existe um [fluxo manual](references/manual.md).
-- **Orca:** a integração depende das capacidades realmente expostas pelo host.
-  O runner Python não inicia agentes nativos do Orca.
+- **Agentes nativos:** o [fluxo nativo](references/native-execution.md) usa as
+  capacidades realmente expostas pelo host, sem exigir Python ou uma aplicação
+  específica. O runner Python não inicia esses agentes.
+- **Integrações opcionais:** no Orca, consulte as
+  [particularidades da integração](references/orca-integration.md).
 
 Para diagnosticar o runner, execute na pasta da skill:
 
@@ -151,6 +161,16 @@ explícito. Workers entregam resultados para inspeção pelo agente principal.
 Cotas, tokens e custos dependem do que cada provedor informa. Leituras antigas
 são incertas; o relatório CLI pode não incluir agentes nativos ou seus
 descendentes. Estimativas de preço não equivalem a gasto efetivamente relatado.
+
+O principal pode [registrar observações nativas](references/tracing.md) para uma
+lista comum com os workers CLI. Estado, tarefa, parentesco e resultado ficam
+identificados por origem; métricas desconhecidas não viram zero. Não há coleta
+nativa automática nem total combinado de custo/tokens. O orçamento do runner
+continua cobrindo somente as execuções CLI que ele gerencia.
+
+Os testes offline do onboarding verificam o percurso de configuração e sua
+persistência. Existe também um [roteiro comportamental](references/onboarding-evaluation.md)
+para avaliar decisões de um agente; a suíte Python não prova esse comportamento.
 
 ## Estrutura
 

@@ -1,4 +1,4 @@
-# Playbooks de estratégia do Orquestrador.
+# Playbooks de estratégia do Batuta.
 # O agente principal lê este arquivo (scripts/orchestrate.py playbook) antes de planejar ou delegar.
 # Uma cópia do usuário criada com `playbook --init` substitui este arquivo por inteiro.
 # Modelo e esforço são resolvidos pela pesquisa; os tiers vazios não escolhem defaults de CLI.

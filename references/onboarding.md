@@ -2,6 +2,11 @@
 
 Use quando o usuário pedir setup ou doctor encontrar política não configurada. O resultado é uma cópia dos playbooks que registra os provedores reais, três perfis aprovados e a forma de cobrança em orquestrador-prices.json ao lado da política. Pergunte apenas o que não puder descobrir; aproveite respostas já dadas ou salvas.
 
+Esta referência não é leitura obrigatória para consultar relatórios ou executar
+com capacidades e limites já verificados. Se o pedido for somente comparar,
+faça inventário, pesquisa e proposta; encerre antes de gravação, ativação de modo
+ou execução de workers. Uma política ausente, sozinha, não autoriza salvá-la.
+
 ## Quando o usuário pedir para reconfigurar
 
 Refaça descoberta e comparação antes da proposta. Use o cadastro anterior como
@@ -14,6 +19,11 @@ Não apresente a seleção salva como uma nova comparação. Mostre o que mudou,
 o que foi mantido e por quê. Não altere a configuração até aprovar a proposta.
 
 ## 1. Inventário
+
+O percurso do runner é verificado por testes offline com persistência/releitura.
+Para avaliar também a pesquisa e as decisões do agente, use os cenários separados
+de [onboarding-evaluation.md](onboarding-evaluation.md); testes Python não comprovam
+obediência de uma LLM nem autorização real em uma conversa.
 
 1. Execute doctor para Codex, Claude Code, Agy/Antigravity e Kimi Code. Um CLI com loggedIn: false entra nas notas como “fazer login primeiro”, não em providers; executá-lo falharia com auth_required.
 2. Procure outros CLIs no PATH, como gemini, kiro-cli, copilot e opencode, e rotas como 9router. Execute --help antes de considerá-los disponíveis. Registre CLIs que não iniciam com a correção necessária. Pergunte se há outro CLI ou roteador a incluir; aceite nome ou caminho do executável.

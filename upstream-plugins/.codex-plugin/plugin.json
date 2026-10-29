@@ -1,20 +1,20 @@
 {
-  "name": "orquestrador-orchestrate",
+  "name": "batuta",
   "version": "19.0.0",
   "description": "Planeje e distribua tarefas delimitadas entre agentes CLI, com controle de uso e relatório final.",
   "author": {
     "name": "Kauã Miguel",
     "url": "https://github.com/Kc1t"
   },
-  "homepage": "https://github.com/Kc1t/alethe-orchestrate-skill",
-  "repository": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "homepage": "https://github.com/leonardoslima/batuta",
+  "repository": "https://github.com/leonardoslima/batuta",
   "license": "MIT",
   "skills": "./skills/",
   "interface": {
-    "displayName": "Orquestrador",
+    "displayName": "Batuta",
     "shortDescription": "Distribua trabalho entre agentes CLI e acompanhe o resultado.",
     "longDescription": "Escolhe um playbook, distribui tarefas delimitadas entre agentes CLI, acompanha o uso e registra o resultado de cada execução.",
-    "developerName": "Kauã Miguel",
+    "developerName": "leonardoslima",
     "category": "Productivity",
     "capabilities": [
       "Interactive",

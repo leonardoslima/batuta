@@ -1,11 +1,11 @@
 {
-  "name": "orquestrador-orchestrate",
+  "name": "batuta",
   "description": "Planeje e distribua tarefas delimitadas entre agentes CLI, com controle de uso e relatório final.",
   "author": {
     "name": "Kauã Miguel"
   },
-  "homepage": "https://github.com/Kc1t/alethe-orchestrate-skill",
-  "repository": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "homepage": "https://github.com/leonardoslima/batuta",
+  "repository": "https://github.com/leonardoslima/batuta",
   "license": "MIT",
   "keywords": [
     "orchestration",

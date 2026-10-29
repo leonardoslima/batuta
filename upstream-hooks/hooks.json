@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/scripts/orchestrate.py\" hook 2>/dev/null || python3 \"${CLAUDE_PLUGIN_ROOT}/skills/alethe/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/skills/alethe/scripts/orchestrate.py\" hook 2>/dev/null || true",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/scripts/orchestrate.py\" hook 2>/dev/null || python3 \"${CLAUDE_PLUGIN_ROOT}/skills/batuta/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/skills/batuta/scripts/orchestrate.py\" hook 2>/dev/null || python3 \"${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/scripts/orchestrate.py\" hook 2>/dev/null || python3 \"${CLAUDE_PLUGIN_ROOT}/skills/alethe/scripts/orchestrate.py\" hook 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/skills/alethe/scripts/orchestrate.py\" hook 2>/dev/null || true",
             "timeout": 10
           }
         ]

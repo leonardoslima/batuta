@@ -1,155 +1,107 @@
 ---
 name: batuta
-description: Orquestra agentes Codex, Claude Code, Antigravity, Kimi ou CLIs personalizados em tarefas delimitadas, com controle de cotas, modelos, custos e revisão. Use quando o usuário pedir orquestração, delegação, comparação de agentes, economia de uso, recuperação de workers, relatórios ou configuração do Batuta.
+description: Use quando o usuário pedir orquestração ou delegação de tarefas entre agentes de código, comparação de modelos para esse trabalho, controle de cotas da execução, recuperação de workers ou configuração e relatórios do Batuta.
 metadata:
   version: "19"
 ---
 
-# Batuta — orquestração de agentes no Orca ou por CLI
+# Batuta — orquestração de agentes de código
 
-Leia primeiro [references/orca-integration.md](references/orca-integration.md) para execução nativa no Orca. Para a configuração inicial, leia [references/onboarding.md](references/onboarding.md) e preserve todas as perguntas do onboarding original.
+Coordene tarefas delimitadas com o menor contexto e custo total que atendam à
+qualidade necessária. Delegue quando compensar; mantenha tarefas pequenas,
+ambíguas ou muito acopladas com o agente principal. Não fixe fornecedor, modelo
+ou esforço a partir de uma experiência anterior.
 
-Conclua o trabalho com o menor contexto possível no agente principal e com os workers capazes de menor custo, ou com modelos mais fortes quando o usuário pedir. Planeje unidades delimitadas, delegue somente quando compensar e integre resultados com evidências.
+## Comece pelo pedido
 
-- **Playbook:** fases, papéis e verificações.
-- **Perfil:** objetivos base, savings e aggressive, traduzidos em modelos e esforços conforme pesquisa, tarefa e recursos.
-- **Objetivo:** intensidade da delegação enquanto um modo está ligado: save, balanced ou max.
-- **Estratégia de execução:** composição de uma rodada: economy, balanced, quality, research, parallel ou rescue.
+Leia somente as referências pertinentes à ação atual. Não percorra setup,
+pesquisa de preços ou descoberta de agentes para apenas consultar um resultado.
+Relatórios genéricos, configuração de aplicações e trabalho individual de código
+não acionam a Batuta por si sós.
 
-## Escolha da execução
-
-Um pedido explícito pela skill local ou sem MCP prevalece. Nos demais casos, consulte scripts/orchestrate.py policy show: backend skill usa este runner; mcp usa ferramentas compatíveis quando disponíveis; auto as prefere quando existirem. Não presuma que o runner Python inicia agentes nativos do Orca. Consulte a integração para escolher entre delegação nativa e workers CLI.
-
-Python 3.9 ou mais recente é opcional. Se python, python3 e py estiverem ausentes ou abaixo dessa versão, ou se o usuário pedir, siga [references/manual.md](references/manual.md). As demais regras continuam valendo pelas alternativas manuais.
-
-O runner local aceita workers concorrentes delimitados, isolamento opcional em worktrees e sessões retomáveis. Seus workers CLI não aparecem automaticamente no quadro nativo do Orca.
-
-## Primeira execução e configuração
-
-Execute scripts/orchestrate.py doctor se o ambiente puder não estar preparado ou se o usuário perguntar pelo setup. O diagnóstico confere Python, provedores, política, playbooks e leituras de cota.
-
-Se não houver política configurada ou o usuário pedir setup, siga [references/onboarding.md](references/onboarding.md): inventarie CLIs, modelos e rotas; proponha os perfis base, savings e aggressive; obtenha aprovação antes de salvar. Grave somente preferências confirmadas. Um proxy como 9router transporta tráfego e não é worker.
-
-Se o usuário pedir para refazer o setup ou reconfigurar, refaça a comparação com os modelos descobertos. A seleção antiga é referência, não um filtro do catálogo; não a reapresente como proposta nova sem reavaliar alternativas. Preserve restrições explícitas do usuário e justifique escolhas antes da aprovação.
-
-A ausência de setup não bloqueia uma tarefa em andamento: rode doctor, use os CLIs autenticados com os playbooks incluídos, informe isso em uma linha e continue. Ofereça o onboarding depois; não grave preferências antes do aceite.
-
-Os playbooks incluídos não fixam modelos ou esforços por tier. Antes de delegar,
-resolva esses campos conforme [references/research.md](references/research.md),
-usando pesquisa oficial e evidência da conta. Se o usuário optar explicitamente
-pelo padrão do CLI, registre essa escolha e a incerteza; tier vazio não é uma
-recomendação para aceitar silenciosamente qualquer modelo/esforço padrão.
-
-Interprete pedidos de configuração assim:
-
-| Pedido | Ação |
+| Pedido | Leia e faça |
 | --- | --- |
-| Economizar um provedor continuamente | Confirme e use policy set --conserve-providers |
-| Modelo barato para tarefas pequenas | Confirme provedor e modelo; altere tiers na cópia dos playbooks |
-| Limite contínuo de workers, tempo ou custo | Confirme e use as opções max-calls, max-wall-seconds e max-reported-cost-usd da política |
-| Limite só desta rodada | Use budget no plano ou --strategy; não altere a política |
-| Limite da tarefa inteira | Defina budget antes da primeira rodada |
-| Retomar após compactação | Consulte status antes de continuar |
-| Voltar aos padrões | Confirme e use policy reset |
-| Mudar fases e papéis | Inicialize a cópia com playbook --init e edite-a |
-| Trocar o perfil continuamente | Confirme e altere profile na cópia |
-| Ver trabalho e gasto | Execute report |
+| Configurar ou reconfigurar a Batuta | [onboarding.md](references/onboarding.md); preserve perguntas relevantes, respostas anteriores e aprovação antes de salvar. Leia [accounts.md](references/accounts.md) e [research.md](references/research.md) ao comparar conta, modelos, esforço e custo. |
+| Executar ou delegar uma tarefa | Escolha o backend abaixo; depois leia somente o procedimento correspondente. |
+| Status, resultados, orçamento ou recuperação de uma execução CLI | [operations.md](references/operations.md), na seção da ação; consulte `status` antes de retomar após compactação. |
+| Consultar ou registrar agentes nativos | [tracing.md](references/tracing.md); use as ferramentas do host para estado e controle dos agentes. |
+| Relatório HTML ou editor de playbooks | [operations.md](references/operations.md) para relatório; [playbooks.md](references/playbooks.md), seção Editor, para editor. Se o pedido for apenas abrir arquivo existente, abra-o sem regenerar ou reconfigurar. |
+| Ativar/desativar modo contínuo, comandos curtos ou preferências persistentes | [cli-workflow.md](references/cli-workflow.md), seções Comandos curtos, Modo contínuo e configuração. |
+| Sem argumentos | Consulte o estado existente; sem execução atual, apresente os comandos principais de [cli-workflow.md](references/cli-workflow.md). Não inicie setup ou workers. |
 
-## Comandos curtos
+`$batuta` é a invocação onde houver suporte. A integração Claude Code mantém
+`/orchestrator`; os apelidos legados continuam compatíveis. Nenhum desses nomes
+autoriza ativar modo contínuo ou gravar preferências sem pedido aplicável.
 
-Use $batuta nos ambientes com suporte a skills, ou palavras após “batuta” nos demais ambientes. A integração existente do Claude Code mantém /orchestrator <argumentos>. Esses pedidos correspondem a uma ação. Os apelidos legados “orquestrador” e “alethe” continuam aceitos para compatibilidade. Comandos de rodada sem pasta usam a orquestração atual, criada por new, escolhida por use ou usada pelo último run.
+## Escolha o backend antes de executar
 
-| Comando | Ação |
-| --- | --- |
-| tarefa em linguagem natural | Orquestre conforme esta skill |
-| sem argumentos | status; sem rodada atual, liste os comandos principais |
-| on ou instrução contínua | Ligue o modo no projeto |
-| always ou on everywhere | mode on --everywhere |
-| off | mode off no projeto |
-| off everywhere | mode off --everywhere |
-| save, balanced ou max | mode on --goal com o valor pedido |
-| careful | mode on --care careful |
-| report [pasta] | Mostre a saída de report sem reescrevê-la |
-| report html | Gere e abra o relatório HTML |
-| status | Mostre a saída de status sem reescrevê-la |
-| usage | Mostre janelas, resets e atualidade; para Claude desatualizado, usage --refresh-claude |
-| models | Mostre preços, níveis e atualidade das fontes |
-| editor ou “mostrar playbooks” | Gere e abra o editor visual offline |
-| list | Liste rodadas; use <pasta> a torna atual |
-| stop | Pare e consulte status após o encerramento |
-| budget <limite> | Defina max-calls, max-reported-cost-usd ou max-reported-tokens |
-| skip, switch, freeform ou add | Ajuste as fases entre rodadas |
-| note <texto> | Registre uma nota |
-| mark <worker> used/partial/discarded | Marque o aproveitamento |
-| setup | Rode doctor e faça o onboarding se necessário |
-| help | Liste brevemente os comandos |
+Respeite a escolha explícita do usuário e as permissões reais do ambiente.
+Caso contrário, considere política já disponível, suporte, isolamento, cotas e
+recursos; descubra apenas as capacidades necessárias para a tarefa. Instalação,
+catálogo ou ferramenta listada não comprovam autenticação nem acesso.
 
-## Modo contínuo
+- **Agentes nativos do host:** leia [native-execution.md](references/native-execution.md).
+  Use as ferramentas realmente expostas para iniciar, acompanhar e encerrar.
+  Não execute `probe`, `scaffold`, `dry-run` ou `run` do runner para lançar esses
+  agentes. O runner pode servir ao registro opcional e aos relatórios mistos,
+  conforme [tracing.md](references/tracing.md), mas não controla a execução nativa.
+- **Workers em CLIs externos:** leia [cli-workflow.md](references/cli-workflow.md).
+  O runner Python valida planos e administra seus processos, limites e resultados.
+  Seus workers não aparecem automaticamente como agentes nativos do host.
+- **Sem Python para workers CLI:** leia [manual.md](references/manual.md).
+  A ausência de Python não impede usar ferramentas nativas disponíveis. Não
+  substitua o backend exigido pelo usuário silenciosamente.
 
-Use-o de forma proativa quando houver unidades independentes delimitadas; mantenha tarefas pequenas ou muito acopladas com o agente principal. mode on --everywhere vale para todos os projetos até ser desligado; mode off cria exceção local. mode on vale para o projeto atual até mode off ou 12 horas sem solicitação. A regra local prevalece sobre a global.
+Sem ferramenta suficiente, informe a lacuna e continue o que não depender dela.
+Ausência de setup não obriga interromper uma tarefa: use capacidades verificadas,
+limites já autorizados e playbooks incluídos, sem salvar preferências; ofereça
+configuração depois. Não invente defaults de modelo/esforço para preencher tiers.
 
---goal save economiza ao máximo; balanced delega quando compensa; max usa mais capacidade disponível. --care careful exige leitura antes da escrita, isolamento de writers, revisão de cada diff e consulta antes de algo difícil de reverter. --rule guarda até oito instruções do usuário; --clear-rules as remove.
+## Regras comuns de planejamento e consumo
 
-Ligue o modo apenas quando o usuário pedir $batuta on, /orchestrator on ou uma instrução contínua. Traduza a preferência para objetivo e cuidado quando couber; preserve também as palavras do usuário. Confirme o estado em uma linha e retome a tarefa. O hook do Claude Code pode lembrar o modo; sem ele, consulte mode show no começo da sessão e após compactação.
+- Continue do plano, conversa e diff existentes. Preserve gates do projeto;
+  Batuta organiza delegação, sem substituir o fluxo específico de entrega.
+- **Playbook** define fases, papéis e verificações; **perfil** (`base`, `savings`,
+  `aggressive`) orienta escolhas de modelo/esforço; **estratégia** compõe uma
+  rodada; **objetivo** (`save`, `balanced`, `max`) orienta um modo contínuo.
+  Leia [playbooks.md](references/playbooks.md) ao escolher fases; os comandos
+  dessa referência pertencem ao runner, não são pré-requisitos da execução nativa.
+- Antes de escolher agentes, confira conta, acesso, cotas, atualidade das leituras
+  e autorização de extras em [accounts.md](references/accounts.md). Mensalidade
+  não determina capacidade; preço de API não representa consumo da assinatura.
+- Para escolher ou revisar modelos e esforços, siga [research.md](references/research.md).
+  Setup/reconfiguração exige fontes oficiais; nas rodadas seguintes, reaproveite
+  evidências pertinentes e pesquise lacunas ou mudanças. Tabela local é snapshot.
+  Modelo econômico não implica esforço baixo. Declare escolhas e incertezas.
+- Antes de cada rodada, confira cotas disponíveis e limites aplicáveis. Dados
+  ausentes/antigos são desconhecidos. Se todos os provedores estiverem baixos,
+  uma troca exigir reduzir capacidade ou a previsão ultrapassar o limite salvo,
+  peça decisão antes de iniciar. Respeite provedor fixado e extras autorizados.
+  Limites rígidos do runner não cobrem automaticamente agentes nativos.
 
-## Entrada em tarefa já iniciada
+## Delegação e entrega
 
-Continue do estado existente. Use conversa, especificação, plano, lista e diff como plano; aponte workers para arquivos em vez de copiar conteúdos. Preserve fases e verificações do fluxo em andamento. Crie new somente para trabalho delegado; mantenha trabalho pequeno, acoplado ou ambíguo com o agente principal e explique em uma linha.
+Prepare briefs conforme [briefs.md](references/briefs.md): objetivo, conclusão
+esperada, caminhos sob responsabilidade, contexto necessário, verificações e
+mudanças proibidas. Aponte para arquivos em vez de copiar transcrições.
 
-## Escolha e execução dos playbooks
+Separe responsabilidades de escrita e isole writers concorrentes. Um writer
+único pode usar o checkout atual preservando alterações existentes. Workers não
+iniciam outra orquestração nem CLIs de agentes alheios; descendentes nativos só
+dentro do escopo, permissões e concorrência disponíveis, sob responsabilidade
+do worker pai. Nunca coloque segredos em tarefas, planos, argumentos ou logs.
+Flags que removem isolamento exigem pedido explícito.
 
-Faça pesquisa oficial no setup/reconfiguração e quando informação essencial estiver ausente, antiga ou conflitante. A tabela local é snapshot, não fonte permanente. Siga [references/research.md](references/research.md) para fontes, modalidades de cobrança, comparação independente de modelo/esforço e reaproveitamento de evidências.
+Acompanhe pelo backend escolhido, confira resultado e diff mesmo após declaração
+de sucesso, integre alterações revisadas e valide o conjunto. Faça uma tentativa
+adicional somente com causa concreta e corrigível, respeitando gates do projeto.
+Registre mudanças de estratégia e aproveitamento no mecanismo disponível.
 
-Antes de propor ou revisar perfis, confira o inventário descoberto por `models`, incluindo origem, atualidade e esforços conhecidos. Considere os candidatos visíveis relevantes e explique as escolhas; nomes fixos dos playbooks não são o catálogo da conta. Preço ausente (`priceMissing`, ou o alias `missing`) não significa modelo indisponível, e `rank` é preço relativo, não capacidade. Siga [references/onboarding.md](references/onboarding.md).
-
-Antes de planejar, rode scripts/orchestrate.py playbook --pick para ver perfil, ordem, condições e resumos. Depois rode playbook <id> para ver fases, níveis resolvidos, cotas e orçamento. Ambos aceitam --json. O comando playbook sem ID mostra o arquivo completo apenas para edição ou onboarding. Consulte [references/playbooks.md](references/playbooks.md).
-
-Escolha pelo pickOrder. O playbook ou a estratégia nomeados pelo usuário prevalecem. Use complete quando nenhum caso específico servir. Execute fases em ordem: who: lead significa esta sessão; as outras fases formam rodadas de workers. runner define strategy, workers define quantidade, readOnly aplica mode: read-only e isolate separa writers em worktrees.
-
-Pule fases cujo if falhe. Entre alternativas unidas por with, execute a primeira verdadeira. Confira cada gate pessoalmente; se falhar, execute a cadeia after uma vez por unidade e confira novamente. Resolva modelo e esforço pelo perfil ativo e pela primeira regra aplicável. Overrides antigos em policy.modelTiers ainda prevalecem; grave novos tiers somente nos playbooks. Declare modelo e esforço de cada worker e use provedor capaz para leitura isolada. Antes da primeira rodada, diga qual playbook escolheu e por quê.
-
-## Cotas
-
-Antes de escolher agentes, consulte [references/accounts.md](references/accounts.md): plano contratado, capacidades verificadas, preferência de consumo e autorização de extras influenciam provedor, modelo, quantidade de workers e tamanho das rodadas. Descubra por evidências locais/CLI e pergunte apenas pelos dados ausentes. Mensalidade não determina capacidade. Concilie conflitos antes de depender do cadastro; desconhecido não significa acesso ou cota ilimitados. Não dependa de extras pagos sem autorização.
-
-Antes de cada rodada, consulte usage. Codex usa dados das sessões; Claude usa rate_limit_event dos workers. Se Claude for usado e a leitura estiver ausente ou com mais de 30 minutos, usage --refresh-claude faz uma chamada curta ao Haiku.
-
-Leia quotaForecast e accounts em dry-run. O histórico é separado pelo contexto do plano; amostras incompatíveis após uma mudança não entram na previsão. Com menos de duas amostras adequadas, trate a previsão como desconhecida. Se o provedor alcançar quota.criticalThreshold, passe a tarefa ao próximo capaz no mesmo nível e informe percentuais e reset em uma linha. Aplique quota.whenSpare quando uma cota de assinatura expiraria sem uso.
-
-Peça decisão antes de iniciar se todos os provedores estiverem baixos, se a alternativa exigir reduzir o nível necessário ou se a previsão ultrapassar quota.stopAt. Informe necessidade, saldo e reset; ofereça esperar, trocar provedor, usar nível menor apenas em unidades seguras, executar somente unidades que caibam ou conectar outro CLI. run --allow-low-quota exige autorização explícita. run recusa provedores no limite e marca unidades pendentes como quota_low; rate_limited indica limite atingido pelo worker.
-
-Um provedor fixado pelo usuário e sua resposta prevalecem. Leituras antigas são incertas, não números atuais. Registre trocas com note "<motivo e leituras>" --kind switch. Consulte [references/playbooks.md](references/playbooks.md) para janelas e previsões.
-
-## Ajustes entre rodadas
-
-Adapte fases, provedores, modelos, estratégias e orçamento ao resultado ou ao pedido do usuário. Registre a alteração antes da próxima rodada para que o relatório a explique: note --kind skip, add, switch ou lead conforme a mudança; use note sem tipo para as demais. Em rodada livre, omita playbook do plano e nomeie phase pelo trabalho. stop interrompe uma rodada inútil sem apagar resultados já produzidos.
-
-## Orquestração
-
-1. Delegue apenas quando compensar. economy e rescue também aceitam um worker. Leia [references/routing.md](references/routing.md) para as estratégias; uma estratégia explícita do usuário vence a preferência salva.
-2. Execute scripts/orchestrate.py probe e escolha provedores disponíveis. Leia [references/providers.md](references/providers.md) para Agy, Kimi, retomada de sessão ou CLI personalizado.
-3. Atribua arquivos distintos aos writers. Isole writers concorrentes em worktrees; um writer único pode usar o checkout atual preservando alterações existentes.
-4. Crie um plano JSON versão 1 fora do repositório. scaffold <strategy> --workers N gera um esqueleto válido. Use provider: auto somente quando a troca aprovada de provedor puder decidir. Coloque limites da rodada em budget; para todas as rodadas, use o comando budget. Inclua title, playbook, phase e why no plano e um why curto em cada worker. Prepare os briefs conforme [references/briefs.md](references/briefs.md). Codex e Claude iniciam sem servidores MCP; mcp: true só quando o brief precisar. Valide pelo esquema ou por validate.
-5. Execute models e faça a pesquisa necessária conforme references/research.md. No setup/reconfiguração, confira as fontes oficiais mesmo que o snapshot local seja recente; nas rodadas seguintes, reaproveite evidências pertinentes e pesquise lacunas ou mudanças. Registre source e asOf dos preços efetivamente verificados em orquestrador-prices.json; não estime preço ausente. Confira dry-run: estratégia, provedores, concorrência, tokens, orçamento, listPriceEstimateUsd e quotaForecast. A estimativa do runner usa snapshot local sem consulta de rede; explique limites e alertas. Se o usuário pedir a arquitetura, salve dry-run --write, gere SVG com scripts/diagram.py e mostre antes de iniciar workers; use somente rotas de proxy confirmadas.
-6. Crie a rodada uma vez com new "<título>" --playbook <nome> --why "<motivo>" --lead <CLI>:<modelo>. Inicie cada fase com run <plano> --in current --detach e espere com wait --timeout N (até 540 segundos) até done ser true. Nunca use execução em primeiro plano com timeout curto. stop encerra processos remanescentes; o runner limita concorrência e orçamento e mantém worktrees para revisão.
-7. Inspecione state.json e cada outcome.json (workerStatus, failureKind e readOnlyViolation primeiro), depois result.md e diff.patch. Logs brutos só para diagnóstico.
-8. Integre alterações revisadas, valide o checkout combinado, marque cada resultado como used, partial ou discarded e remova somente dados temporários e worktrees cujo conteúdo útil foi tratado.
-9. Encerre com report e mostre trabalho, motivos, mudanças, gasto relatado e pendências. Para exemplos e limpeza, consulte [references/operations.md](references/operations.md).
-
-## Contrato dos workers
-
-Cada brief contém objetivo, definição de conclusão, caminhos sob responsabilidade, regras do repositório, verificações, mudanças proibidas e forma de entrega. O runner exige que o worker não inicie outro Orquestrador ou CLI externo alheio, não faça commit, push, tag, release nem PR, e devolva resumo, evidências, arquivos, verificações, falhas e riscos. A última resposta termina com STATUS: (DONE, DONE_WITH_CONCERNS, BLOCKED ou NEEDS_CONTEXT) e SUMMARY:.
-
-Subagentes nativos podem ser usados dentro do escopo atribuído, sem sobreposição de escrita. ORQUESTRADOR_ORCHESTRATE_WORKER=1 impede uma segunda orquestração; o alias legado continua aceito. Confira o diff mesmo se o worker declarar sucesso. Briefs de revisão, validação e julgamento seguem [references/briefs.md](references/briefs.md).
-
-Nunca coloque segredos em planos, tarefas, argumentos ou logs. Flags que removem isolamento exigem pedido explícito; workers personalizados precisam de allowUnsafe: true para flags sabidamente inseguras.
-
-## Economia de tokens
-
-- “Poucos tokens”, “economize cota” e similares significam strategy economy nesta rodada. policy set economy persiste só quando o usuário pedir.
-- budget limita chamadas, tempo, tokens estimados de prompt, tokens relatados e custo relatado. Confira dry-run antes de executar. Apenas Claude relata custo; maxReportedTokens limita os demais. Leituras de cache são contabilizadas à parte.
-- Mais workers gastam mais cota total. auto escolhe execução direta quando delegar custaria mais; se o usuário pediu orquestração, escolha a menor estratégia válida.
-- Aponte para arquivos em vez de copiar conteúdos. Leia resultados curtos e diffs, não transcrições. Reuse sessionId apenas em acompanhamentos focados.
-- Faça uma única tentativa adicional para um worker que falhou somente se houver causa concreta e corrigível.
+Para agentes nativos, registre IDs, parentesco, estado e resultado observados;
+o principal serializa a persistência conforme [tracing.md](references/tracing.md).
+Declare lacunas de cobertura. Não invente métricas nem some custos/tokens nativos
+potencialmente inclusivos aos totais CLI. Encerre com trabalho entregue,
+verificações, consumo conhecido e pendências, sem exigir runner para relatar
+uma execução puramente nativa.
 
 Não faça commit, push, tag, release nem abra PR sem pedido explícito do usuário.

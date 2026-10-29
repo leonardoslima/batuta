@@ -269,7 +269,7 @@ class RunnerTest(Fixtures):
         version = re.search(r'version: "(\d+)"', (SKILL / "SKILL.md").read_text(encoding="utf-8")).group(1)
         self.assertEqual(orchestrate.skill_version(), version)
         result = subprocess.run([sys.executable, str(SCRIPT), "--version"], capture_output=True, text=True)
-        self.assertEqual(result.stdout.strip(), f"orquestrador-orchestrate {version}")
+        self.assertEqual(result.stdout.strip(), f"batuta {version}")
         code, out, _ = self.call("doctor", "--policy", self.policy)
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out)["skill"]["version"], version)

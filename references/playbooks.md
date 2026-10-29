@@ -1,6 +1,34 @@
 # Referência do arquivo de playbooks
 
-Antes de planejar, execute scripts/orchestrate.py playbook --pick: ele mostra perfil ativo, ordem dos provedores, condições de escolha e resumos. playbook <id> mostra somente o playbook escolhido, tiers resolvidos, ordem, cotas e orçamento. Ambos aceitam --json. playbook sem ID mostra o arquivo inteiro apenas para edição ou onboarding. playbook --init cria uma cópia ao lado da política; apagar essa cópia restaura os padrões. doctor valida a cópia. Veja [onboarding.md](onboarding.md).
+Leia esta referência para escolher fases ou editar playbooks. O procedimento
+das fases independe do backend. Na execução nativa, consulte perfil, `pickOrder`
+e resumos na cópia configurada do YAML; sem cópia, use `playbooks.yaml` da skill.
+Depois leia somente o playbook escolhido, seus tiers, condições e gates.
+
+Com o runner CLI, `python scripts/orchestrate.py playbook --pick` mostra perfil
+ativo, ordem dos provedores, condições e resumos. `playbook <id>` mostra somente
+o playbook escolhido, tiers resolvidos, ordem, cotas e orçamento. Ambos aceitam
+`--json`. `playbook` sem ID mostra o arquivo inteiro apenas para edição ou
+onboarding. `playbook --init` cria uma cópia ao lado da política; apagar essa
+cópia restaura os padrões. `doctor` valida a cópia. Esses comandos não iniciam
+agentes nativos. Veja [onboarding.md](onboarding.md) somente para configuração.
+
+## Aplicação das fases em qualquer backend
+
+Escolha por `pickOrder`, respeitando playbook ou estratégia pedidos pelo usuário;
+use `complete` quando nenhum caso específico servir. `who: lead` é a sessão
+principal; os demais papéis são unidades delegadas no backend escolhido.
+Execute fases em ordem, pulando `if` falso. Em alternativas condicionais unidas
+por `with`, escolha a primeira verdadeira. O principal verifica cada `gate`;
+se falhar, execute a cadeia `after` uma vez por unidade e confira novamente,
+preservando gates adicionais do projeto. `readOnly`, `workers` e `isolate`
+expressam restrições e quantidade, não verbos de uma API nativa.
+
+Resolva modelo/esforço pelo perfil ativo e primeira regra aplicável; overrides
+legados de `policy.modelTiers` ainda prevalecem. Novos tiers pertencem ao YAML.
+Declare as escolhas e o motivo do playbook antes da primeira rodada. Se o host
+não suportar uma restrição necessária, informe a lacuna antes de delegar; não
+afirme isolamento ou leitura protegida sem evidência.
 
 ## Editor
 
@@ -32,6 +60,12 @@ editor grava orquestrador-playbooks.html ao lado da política (ou em --out <arqu
 | routing | Roteamento opcional por tipo/esforço, exportado pelo editor |
 
 ## Provedores e rotas
+
+As referências a `usage`, `models`, `dry-run`, `note` e arquivos de telemetria
+nesta página descrevem o runner CLI. Na execução nativa, confira as mesmas
+restrições usando evidências disponíveis no host e registre decisões na sessão;
+não rode esses comandos como pré-requisitos. Métricas ou previsões que o host
+não expuser permanecem desconhecidas, sem afirmar limites rígidos equivalentes.
 
 Plano contratado, capacidades e preferência de consumo ficam em `accounts` no
 arquivo local de preços, conforme [accounts.md](accounts.md). Consulte `usage`,

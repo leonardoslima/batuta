@@ -9,6 +9,7 @@ import copy
 import datetime as dt
 import functools
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -3977,12 +3978,14 @@ def stop_payload(folder: Path) -> Dict[str, Any]:
 def report_target(paths: Sequence[Path]) -> Tuple[List[Path], Optional[Path]]:
     if paths:
         folder = paths[0].expanduser().resolve() if len(paths) == 1 else None
+        if folder and (folder / "agents.json").is_file() and (folder / ORCHESTRATION_FILE).is_file():
+            return wave_dirs(folder), folder
         return find_run_dirs(paths), folder
     current = current_folder()
     if current is None:
         return find_run_dirs([]), None
     runs = wave_dirs(current)
-    if not runs:
+    if not runs and not (current / "agents.json").is_file():
         raise PlanError(f"{current} has no waves yet; run one with run --in current")
     return runs, current
 
@@ -4162,9 +4165,9 @@ def mode_reminder(mode: Dict[str, Any], everywhere: bool) -> str:
     if rules:
         parts.append("Regras do usuário: " + "; ".join(rules) + ".")
     parts.append(
-        "Siga a skill orchestrator em cada pedido: faça você mesmo quando custar menos, "
+        "Siga a skill batuta em cada pedido: faça você mesmo quando custar menos, "
         "delegue unidades limitadas quando compensar e respeite as etapas de outras skills ou "
-        "especificações. '/orquestrador off' desliga este modo aqui."
+        "especificações. '$batuta off' desliga este modo aqui."
     )
     return " ".join(parts)
 
@@ -4866,6 +4869,22 @@ def summed(values: Sequence[Any]) -> Optional[float]:
     return sum(known) if known else None
 
 
+@functools.lru_cache(maxsize=1)
+def agent_trace_module() -> Any:
+    path = Path(__file__).resolve().with_name("agent_trace.py")
+    spec = importlib.util.spec_from_file_location("batuta_agent_trace", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def trace_call(name: str, *args: Any, **kwargs: Any) -> Any:
+    try:
+        return getattr(agent_trace_module(), name)(*args, **kwargs)
+    except (ValueError, OSError) as error:
+        raise PlanError(f"agent trace: {error}") from error
+
+
 def build_report(run_dirs: Sequence[Path], folder: Optional[Path] = None) -> Dict[str, Any]:
     meta = orchestration_meta(folder)
     runs = sorted((collect_run(path) for path in run_dirs), key=lambda run: run["startedAt"] or "")
@@ -4911,6 +4930,7 @@ def build_report(run_dirs: Sequence[Path], folder: Optional[Path] = None) -> Dic
     for run in runs:
         if run["playbook"] and run["playbook"] not in playbooks:
             playbooks.append(run["playbook"])
+    agents = trace_call("agent_list", runs, folder)
     return {
         "version": 1,
         "generatedAt": now_iso(),
@@ -4920,6 +4940,15 @@ def build_report(run_dirs: Sequence[Path], folder: Optional[Path] = None) -> Dic
         "why": meta.get("why"),
         "lead": meta.get("lead") if isinstance(meta.get("lead"), dict) else None,
         "journal": read_journal(folder),
+        "agents": agents,
+        "agentCoverage": {
+            "collection": "observed-only", "combinedTokens": None, "combinedCost": None,
+            "nativeMetricsAggregated": False,
+            "missingTokens": [agent["key"] for agent in agents if not agent["coverage"]["tokens"]],
+            "missingCost": [agent["key"] for agent in agents if not agent["coverage"]["cost"]],
+            "unknownScope": [agent["key"] for agent in agents if any(
+                metric["scope"] == "unknown" for metric in agent["metrics"].values())],
+        },
         "startedAt": runs[0]["startedAt"] if runs else None,
         "finishedAt": max((run["finishedAt"] or "" for run in runs), default="") or None,
         "totals": {
@@ -5143,6 +5172,25 @@ def render_markdown(report: Dict[str, Any]) -> str:
     totals = report["totals"]
     runs = report["runs"]
     lines = ["# Orchestration report", ""]
+    if report.get("agents"):
+        lines += ["## Agentes observados (nativos e CLI)", "",
+            "Consumo completo desconhecido; totais abaixo cobrem somente CLI. Métricas nativas não são somadas.", "",
+            "| Agente | Origem | Provedor / modelo / esforço | Estado | Pai | Tokens | Custo e natureza | Tarefa / resultado | Fonte / horário |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+        for agent in report["agents"]:
+            tokens, cost = agent["metrics"].get("tokens"), agent["metrics"].get("cost")
+            token_text = f"{tokens['value']} ({tokens['scope']})" if tokens else "desconhecido"
+            cost_text = f"{cost['value']} {cost['currency']} ({cost['basis']}; {cost['scope']})" if cost else "desconhecido"
+            state = str(agent.get("status") or "unknown") + ("; observação antiga" if agent.get("stale") else "")
+            parent = agent.get("parentKey") or "desconhecido"
+            if agent.get("parentUnresolved"):
+                parent += " (não registrado)"
+            lines.append("| " + " | ".join(cell(value) for value in (
+                agent["id"], agent["backend"], " / ".join(agent.get(key) or "?" for key in ("provider","model","effort")),
+                state, parent, token_text, cost_text,
+                " / ".join(agent.get(key) or "?" for key in ("task", "result")),
+                " / ".join(agent.get(key) or "?" for key in ("source", "observedAt")))) + " |")
+        lines.append("")
     heading = []
     if report["title"]:
         heading.append(f"**{cell(report['title'])}**")
@@ -5336,7 +5384,7 @@ def render_markdown(report: Dict[str, Any]) -> str:
     lines.append(note)
     version = report["skillVersion"]
     lines.append(
-        f"Gerado por Orquestrador{' v' + version if version else ''} a partir de {counted(totals['runs'], 'run')}."
+        f"Gerado pela Batuta{' v' + version if version else ''} a partir de {counted(totals['runs'], 'run')}."
     )
     return "\n".join(lines) + "\n"
 
@@ -5601,10 +5649,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--version", action="version", version=f"orquestrador-orchestrate {skill_version() or 'unknown'}"
+        "--version", action="version", version=f"batuta {skill_version() or 'unknown'}"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("strategies", help="list orchestration strategies and limits")
+    trace_parser = subparsers.add_parser("trace", help="record or list observed native agents without launching them")
+    trace_parser.add_argument("action", choices=["record", "list"])
+    trace_parser.add_argument("observation", nargs="?", type=Path)
+    trace_parser.add_argument("--in", dest="trace_folder", type=Path)
     playbook_parser = subparsers.add_parser(
         "playbook", help="print the strategy playbooks the planner follows"
     )
@@ -5755,6 +5807,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "trace":
+            folder = resolve_folder(None if args.trace_folder == Path("current") else args.trace_folder)
+            if args.action == "record":
+                if args.observation is None:
+                    raise PlanError("trace record requires a JSON observation file")
+                try:
+                    if args.observation.stat().st_size > 65536:
+                        raise PlanError("trace observation must not exceed 64 KiB")
+                except OSError as error:
+                    raise PlanError(f"cannot read trace observation: {error}") from error
+                try:
+                    observation = read_json(args.observation)
+                except UnicodeError as error:
+                    raise PlanError("trace observation must be valid UTF-8 JSON") from error
+                payload = trace_call("record", folder, observation)
+            else:
+                if args.observation is not None:
+                    raise PlanError("trace list does not accept an observation file")
+                payload = build_report(wave_dirs(folder), folder)
+                payload = {"agents": payload["agents"], "agentCoverage": payload["agentCoverage"]}
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0
         if args.command == "strategies":
             print(json.dumps(strategies_payload(), indent=2))
             return 0

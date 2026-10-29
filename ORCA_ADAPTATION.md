@@ -8,4 +8,19 @@ A licença, os scripts, os 11 playbooks, o suporte a modelos e cotas, o onboardi
 
 Esta adaptação não oferece um adaptador completo para todas as ferramentas nativas do Orca nem telemetria unificada de tokens de descendentes nativos.
 
+O núcleo atual da Batuta é independente do host. O procedimento geral está em
+[native-execution.md](references/native-execution.md); as particularidades do
+Orca ficam em [orca-integration.md](references/orca-integration.md), carregadas
+somente quando esse ambiente estiver em uso. O nome deste documento registra
+a origem da adaptação, sem definir Orca como requisito de instalação ou execução.
+
 A marca histórica Alethe e as marcas dos provedores pertencem aos respectivos titulares.
+
+A identidade pública desta adaptação é **Batuta**, incluindo páginas visuais,
+metadados, mensagem de modo contínuo e identificação da CLI. Nomes de arquivos
+persistidos `orquestrador-*`, variáveis `ORQUESTRADOR_*`/`ALETHE_*`, caminhos de
+migração e o identificador histórico do esquema permanecem por compatibilidade.
+Os documentos `UPSTREAM_*` e a licença preservam a atribuição original. Os hooks
+procuram a estrutura atual e `skills/batuta` antes dos caminhos legados; os
+manifestos em `upstream-plugins` continuam sendo modelos de empacotamento, não
+uma instalação de plugin validada por esta cópia da skill.

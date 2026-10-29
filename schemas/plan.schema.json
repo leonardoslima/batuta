@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://alethe.app/schemas/orchestrate-plan-v1.json",
-  "title": "Alethe CLI orchestration plan",
+  "title": "Batuta CLI orchestration plan",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "workers"],

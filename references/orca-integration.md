@@ -1,35 +1,33 @@
-# Integração com Orca
+# Particularidades do Orca
 
-Esta skill mantém o comportamento do Orquestrador v19 e acrescenta uma adaptação pequena ao Orca. Leia [onboarding.md](onboarding.md) para as perguntas originais do primeiro setup. Preserve playbooks, editor, relatório, cotas, orçamentos, provedores e salvaguardas, salvo exceção explícita abaixo.
+Leia somente quando o ambiente em uso for Orca. O procedimento de agentes
+nativos está em [native-execution.md](native-execution.md); este arquivo
+complementa esse procedimento, sem tornar Orca requisito da Batuta.
 
-## Descubra o ambiente antes de executar
+## Recursos gerenciados
 
-- Orca é o aplicativo hospedeiro, não necessariamente o backend de execução dos agentes.
-- No início de cada tarefa, descubra as ferramentas e capacidades reais expostas pelo Orca e pelo runtime do agente. Não presuma nomes de API, verbos CLI, modelos, níveis de esforço nem comandos de shell por documentação ou sessões anteriores.
-- Use workspace, worktree, terminal, navegador e agentes gerenciados pelo Orca quando existirem, forem permitidos e fizerem sentido. Não crie outro gerenciador para checkout ou sessão já pertencente ao Orca.
-- Se a delegação nativa estiver realmente disponível, o agente principal pode usá-la diretamente com os playbooks, limites de escopo e verificações desta skill. O runner Python não inicia agentes nativos do Orca; não o apresente como se fizesse isso.
-- O runner CLI original continua disponível para workers externos e não desativa artificialmente subagentes nativos dentro deles.
-- Prefira delegação nativa quando o fluxo exigir subagentes nativos. Nos demais casos, escolha conforme tarefa, preferência do usuário, suporte, isolamento e recursos. Não substitua silenciosamente agentes nativos exigidos por workers CLI.
-- Um worker pode usar subagentes aninhados apenas dentro de seu escopo. Ele responde por todos os descendentes. Não execute novamente o Orquestrador dentro de um worker nem inicie outro CLI de agente alheio. Evite responsabilidades de escrita sobrepostas e respeite permissões, cotas e concorrência do host.
-- A telemetria de cota e custo do runner original pode não incluir descendentes nativos. Declare essa lacuna e não afirme que os limites rígidos os cobrem.
+- Orca é o aplicativo hospedeiro, não necessariamente o backend dos agentes.
+  Sua presença não comprova disponibilidade de delegação nativa.
+- Confira ferramentas e comandos realmente expostos pelo Orca e pelo runtime
+  antes de usá-los. Não presuma nomes de API, verbos CLI ou modelos.
+- Use workspace, worktree, terminal, navegador e agentes gerenciados pelo Orca
+  quando existirem, forem permitidos e fizerem sentido. Não crie outro
+  gerenciador para checkout ou sessão já pertencente ao Orca.
+- Workers CLI não aparecem automaticamente no quadro nativo do Orca.
+  O runner Python não inicia agentes desse quadro.
 
-## Setup e perguntas originais
+## Configuração e interação
 
-Ao receber $batuta setup ou /orchestrator setup, leia [onboarding.md](onboarding.md) por completo:
+Para setup/reconfiguração, siga [onboarding.md](onboarding.md), incluindo
+contas, modelos, cotas, perfis e aprovação antes de salvar. Inclua no inventário
+as ferramentas de agentes que o Orca realmente expuser. Este adaptador não
+exige repetir onboarding em uma tarefa ou consulta já autorizada.
 
-1. Inspecione ferramentas de agentes do Orca, CLIs locais, autenticação, modelos, capacidades, cotas disponíveis e gateways configurados.
-2. Pergunte por CLIs adicionais somente quando a descoberta não os encontrar; confira como são usados.
-3. Para cada provedor sem resposta salva, pergunte se a cobrança é por assinatura ou API.
-4. Proponha base, savings e aggressive com modelos e níveis de esforço encontrados; mostre a tabela concreta de rotas e modelos e peça aprovação antes de gravar.
-5. Pergunte se o modo deve valer globalmente e ofereça a prévia visual original.
-6. Preserve o editor offline de playbooks e o relatório HTML.
+Se houver ferramenta de perguntas interativas, use-a para decisões necessárias;
+caso contrário, converse normalmente. Sem ferramenta suficiente, explique o
+que não pôde verificar. Preserve o editor offline e os relatórios da Batuta;
+eles não dependem do quadro nativo nem comprovam que seus agentes foram coletados.
 
-Se o Orca oferecer ferramenta de perguntas interativas, use-a; caso contrário, converse normalmente. Sem ferramenta suficiente, explique precisamente o que não pôde verificar. Não invente modelos descobertos nem declare setup concluído.
-
-## Sessões nativas e relatórios
-
-O relatório CLI cobre apenas rodadas CLI. Para sessões nativas, forneça resumo separado com evidências ou use o relatório do host. Não invente tokens, provedores nem duração e não rotule sessões nativas como rodadas CLI. Preserve o editor e o relatório HTML originais para rodadas CLI; a unificação com sessões nativas não é garantida.
-
-## Relação com fluxos do projeto
-
-Um fluxo específico, como muvit-autonomous, controla seleção de tarefas, planejamento, ambiente, QA, PR e ciclo de revisão. Respeite seus gates mesmo quando um playbook genérico sugerir uma política de retry menor.
+Para observações persistentes, consulte [tracing.md](tracing.md). O principal
+registra somente IDs e métricas realmente expostos. A integração não oferece
+coleta automática completa nem estende limites do runner a agentes nativos.

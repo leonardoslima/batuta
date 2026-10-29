@@ -133,3 +133,9 @@ Campos de `budget` são opcionais; ausência significa sem limite:
 `isolate: true` cria worktree destacada em `.orquestrador/worktrees/` só para escritor. Ela não é removida automaticamente. O runner usa `.git/info/exclude` local, não versionado. Worktrees partem de `HEAD`; `seedPaths` leva apenas caminhos relativos explicitamente listados, aplicando diffs rastreados e copiando arquivos não rastreados. Symlinks são rejeitados. O runner não faz stash nem commit do checkout principal. Inspecione `status.txt` e `diff.patch`, integre mudanças revisadas, valide o conjunto e só então remova a worktree.
 
 Saída não zero, timeout, JSON inválido, erro ou resposta vazia são falhas. Leia `error`, `failureKind` e o fim de `stderr.log`. Tente novamente uma vez apenas após corrigir causa específica: `rate_limited`/`quota_low` pedem espera ou outro provedor; `auth_required`/`not_installed` exigem ação no ambiente; `timed_out`/`stalled` podem usar `rescue` ou escopo menor; `budget`/`budget_exceeded` só elevam limite com autorização. Diff parcial é não confiável até revisão. Não apague mudanças do checkout principal após falha de escritor não isolado sem verificar autoria.
+# Registro nativo e relatórios mistos
+
+Consulte [tracing.md](tracing.md) para registrar observações nativas e consultar
+orquestrações sem rodadas CLI. Registro é responsabilidade do principal; não
+lança nem encerra agentes. Consumo completo pode ser desconhecido e orçamentos
+do runner permanecem limitados aos workers CLI gerenciados.

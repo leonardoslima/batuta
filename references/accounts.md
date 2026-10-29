@@ -4,6 +4,12 @@ Leia durante o onboarding e antes de escolher provedores, modelos e quantidade
 de workers. O plano influencia o planejamento junto das cotas atuais e do
 histórico compatível. O preço da assinatura não determina sua capacidade.
 
+As regras de conta valem para qualquer backend. Os comandos `usage`, `models`
+e `dry-run`, seus campos e arquivos abaixo pertencem ao runner CLI. Na execução
+nativa, use as evidências equivalentes realmente expostas pelo host ou dados
+confirmados pelo usuário; não execute o runner como pré-requisito. Se o host não
+expuser conta, cota ou previsão, mantenha a lacuna explícita.
+
 ## Descoberta e confirmação
 
 1. Consulte `usage` e `models`. Ambos apresentam `account` por provedor; `usage`

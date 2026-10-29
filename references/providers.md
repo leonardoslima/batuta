@@ -30,7 +30,7 @@ Codex e Claude recebem a tarefa por entrada padrão. Agy e Kimi exigem prompt na
 
 ## O que o runner restringe
 
-- Subagentes: a adaptação Orca não desativa artificialmente subagentes nativos em Codex ou Claude. Workers permanecem limitados ao escopo recebido. ORQUESTRADOR_ORCHESTRATE_WORKER=1 impede segunda orquestração; o nome legado da variável continua aceito. Descendentes podem ultrapassar a contabilidade de cota do pai.
+- Subagentes: o runner não desativa artificialmente subagentes nativos em Codex ou Claude. Workers permanecem limitados ao escopo recebido. ORQUESTRADOR_ORCHESTRATE_WORKER=1 impede segunda orquestração; o nome legado da variável continua aceito. Descendentes podem ultrapassar a contabilidade de cota do pai.
 - Servidores MCP: Codex recebe mcp_servers vazio e Claude --strict-mcp-config. Isso evita custo de inicialização e definições de ferramentas desnecessárias. Defina mcp: true quando um brief precisar de servidor.
 - Gasto: se o Claude instalado aceitar --max-budget-usd, o worker recebe o orçamento relatado restante por essa flag. Sem a flag, o limite de custo relatado só impede workers posteriores.
 
