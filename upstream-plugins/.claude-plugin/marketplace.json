@@ -1,0 +1,14 @@
+{
+  "name": "orquestrador",
+  "description": "Skills para coordenar agentes de programação.",
+  "owner": {
+    "name": "Kauã Miguel"
+  },
+  "plugins": [
+    {
+      "name": "orquestrador-orchestrate",
+      "source": "./",
+      "description": "Orquestre agentes CLI com playbooks, controle de uso e relatórios de execução."
+    }
+  ]
+}

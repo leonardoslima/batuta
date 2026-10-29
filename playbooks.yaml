@@ -1,0 +1,608 @@
+# Playbooks de estratégia do Orquestrador.
+# O agente principal lê este arquivo (scripts/orchestrate.py playbook) antes de planejar ou delegar.
+# Uma cópia do usuário criada com `playbook --init` substitui este arquivo por inteiro.
+# Referência dos campos e condições: references/playbooks.md
+
+version: 1
+goal: orchestrate-and-save
+
+principles:
+  - Faça o trabalho diretamente quando instruir um worker custar mais; delegar sempre tem um custo mínimo.
+  - Use o nível forte para decisões e o econômico para volume.
+  - Fixe modelo e esforço de cada worker; sem isso, a CLI pode usar seu modelo padrão mais caro.
+  - Preserve o contexto do agente principal; workers retornam respostas, evidências e diffs, não transcrições.
+  - Divida por unidade independente, sem fragmentar além disso; briefings excessivos aumentaram o custo no exemplo da Anthropic.
+  - Eleve o nível após falha de checagem, nunca pela própria afirmação do worker; um nível por vez e uma vez por unidade.
+  - Revise o diff concluído, nunca o trabalho em andamento.
+  - Mantenha modelo e esforço fixos por sessão; mudar descarta o cache do prompt.
+  - Use xhigh somente em escalada e evite max.
+  - Limite cada execução com orçamento e compare custo por tarefa concluída.
+  - Modelos econômicos fazem triagem; julgar correção do código exige nível padrão ou superior.
+  - Unidade arriscada não usa nível econômico e seu diff passa por review-gate.
+
+providers: [claude, codex]
+
+tiers:
+  cheap:
+    claude: { model: haiku, effort: low }
+    codex: { effort: low }
+  standard:
+    claude: { model: sonnet, effort: medium }
+    codex: { effort: medium }
+  strong:
+    claude: { model: opus, effort: high }
+    codex: { effort: high }
+
+quota:
+  criticalThreshold: 80
+  stopAt: 95
+  whenLow: switch-provider
+  onBothCritical: ask
+  whenSpare: spend-strong
+  spareWithinHours: 24
+  spareMinLeft: 30
+  planEnds: {}
+
+budget:
+  warnAt: 80
+  whenLow: finish-and-report
+
+profile: base
+profiles:
+  base:
+    name: Base
+    summary: Cada nível usa seu modelo habitual.
+  savings:
+    name: Economia
+    summary: Um passo mais econômico em cada nível.
+    quota: { criticalThreshold: 70, stopAt: 90 }
+    tiers:
+      standard:
+        claude: { model: haiku, effort: medium }
+        codex: { effort: low }
+      strong:
+        claude: { model: sonnet, effort: high }
+        codex: { effort: medium }
+  aggressive:
+    name: Agressivo
+    summary: Um passo mais forte em cada nível, usando mais da janela antes de trocar.
+    quota: { criticalThreshold: 95, stopAt: 98 }
+    tiers:
+      cheap:
+        claude: { model: sonnet, effort: low }
+        codex: { effort: medium }
+      standard:
+        claude: { model: opus, effort: medium }
+        codex: { effort: high }
+
+pickOrder:
+  - { when: "Tarefa clara e restrita que altera até cerca de 3 arquivos", playbook: direct }
+  - { when: "Mudança mecânica com checagem automática", playbook: cascade }
+  - { when: "Código desconhecido com muita leitura e pouca escrita", playbook: scout-then-build }
+  - { when: "Até cerca de 10 perguntas ou leituras independentes", playbook: plan-big-execute-small }
+  - { when: "Dezenas ou centenas de itens semelhantes para verificar", playbook: audit-at-scale }
+  - { when: "Módulos independentes para alterar em paralelo", playbook: parallel-worktrees }
+  - { when: "Uma funcionalidade construída em etapas sequenciais", playbook: plan-execute }
+  - { when: "Tarefa longa e majoritariamente mecânica com poucas decisões difíceis", playbook: advisor-escalation }
+  - { when: "Bug difícil e importante que justifica várias tentativas", playbook: best-of-n }
+  - { when: "Diff concluído antes da integração", playbook: review-gate }
+  - { when: "Outros casos, deixando as condições decidirem por unidade", playbook: complete }
+
+playbooks:
+  complete:
+    name: Completo
+    goal: Fluxo adaptativo em que a tarefa define o papel, os tokens restantes definem o modelo e uma checagem reprovada eleva o nível.
+    pickWhen: Você quer um padrão que se ajuste por unidade sem escolher um playbook antes.
+    saves: Cada unidade usa o papel mais econômico adequado e muda de provedor se acabarem os tokens.
+    avoidWhen: Um playbook especializado se encaixa melhor.
+    phases:
+      - id: plan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Leia a tarefa; se não for restrita, divida-a em unidades delimitadas e classifique tipo e esforço.
+      - id: quick
+        role: do it yourself
+        who: lead
+        tier: strong
+        if: narrow
+        then: done
+        does: Uma tarefa restrita fica na sessão principal; faça a alteração e execute as checagens.
+      - id: read
+        role: scout
+        tier: cheap
+        readOnly: true
+        workers: 4
+        runner: research
+        with: quick
+        if: kind:research
+        then: done
+        does: Uma pergunta por explorador.
+        returns: Resposta com evidência arquivo:linha, em até 1,5 mil tokens.
+      - id: build
+        role: builder
+        tier: standard
+        readOnly: false
+        runner: economy
+        with: quick
+        if: not kind:research
+        does: Implemente uma unidade.
+        returns: Arquivos alterados, checagens executadas, falhas e riscos.
+        rules:
+          - if: [deep, claude-opus-above:50]
+            use: { model: sonnet, effort: high }
+          - if: deep
+            use: { tier: strong }
+          - if: [risky, light]
+            use: { tier: standard }
+          - if: light
+            use: { tier: cheap }
+      - id: review
+        role: reviewer
+        tier: standard
+        provider: codex
+        readOnly: true
+        runner: economy
+        does: Revise o diff concluído conforme o plano e as regras do repositório.
+        gate: As checagens passam e o diff corresponde ao plano.
+      - id: fix
+        role: fixer
+        tier: strong
+        readOnly: false
+        runner: economy
+        after: review
+        if: checks-failed
+        then: recheck
+        does: Corrija a partir do trecho da falha e das notas da revisão.
+        rules:
+          - if: budget-low
+            use: { tier: standard, effort: high }
+          - if: claude-low
+            use: { provider: codex, effort: xhigh }
+
+  direct:
+    name: Direto
+    goal: Conclua a tarefa na sessão principal sem custo adicional de orquestração.
+    pickWhen: A tarefa é clara e restrita a até cerca de 3 arquivos.
+    saves: Dispensa briefing e segunda leitura dos mesmos arquivos.
+    avoidWhen: Há trabalho independente de verdade para dividir.
+    phases:
+      - id: do
+        role: planner
+        who: lead
+        tier: standard
+        readOnly: false
+        does: Faça a alteração e as checagens diretamente; sem workers.
+        gate: As checagens passam.
+      - id: consult
+        role: advisor
+        tier: strong
+        readOnly: true
+        runner: economy
+        after: do
+        if: checks-failed-twice
+        then: recheck
+        does: Envie apenas o resumo da falha e o diff; peça diagnóstico, não reescrita.
+        returns: Causa provável e próximo passo, em até 300 palavras.
+
+  plan-execute:
+    name: Planejar e executar
+    goal: Um planejador forte define as etapas; um worker padrão as executa.
+    pickWhen: Uma funcionalidade construída em etapas sequenciais.
+    saves: O nível forte é usado apenas no planejamento, como no opusplan do Claude Code.
+    avoidWhen: As etapas são óbvias; planeje na sessão e use o playbook direto.
+    next: review-gate
+    phases:
+      - id: plan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Escreva etapas numeradas com caminhos, interfaces e a checagem que comprova cada etapa.
+      - id: execute
+        role: executor
+        tier: standard
+        readOnly: false
+        runner: economy
+        does: Siga o plano por etapas; se alguma estiver errada, pare e relate em vez de improvisar.
+        returns: Arquivos alterados, checagens executadas, falhas e riscos.
+        gate: As checagens passam.
+      - id: replan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        after: execute
+        if: checks-failed-twice
+        does: Replaneje apenas a parte que falhou a partir do resumo da falha.
+      - id: strong-fix
+        role: fixer
+        tier: strong
+        readOnly: false
+        runner: economy
+        after: replan
+        then: recheck
+        does: Aplique as etapas revisadas.
+        rules:
+          - if: claude-low
+            use: { provider: codex, effort: xhigh }
+
+  plan-big-execute-small:
+    name: Planejar amplo, executar pequeno
+    goal: O agente principal forte apenas divide e sintetiza; workers padrão fazem a leitura.
+    pickWhen: Trabalho de leitura ampla com até cerca de 10 unidades independentes, como auditoria de módulos, verificação de fatos ou triagem de logs.
+    saves: No exemplo da Anthropic, 84% a 98% dos tokens de entrada da equipe foram cobrados na faixa dos workers.
+    avoidWhen: A tarefa é restrita, a resposta já é conhecida ou o material bruto exige análise forte.
+    source: https://github.com/anthropics/claude-cookbooks/blob/main/managed_agents/CMA_plan_big_execute_small.ipynb
+    phases:
+      - id: decompose
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Divida a pergunta em unidades independentes e escreva um briefing claro por unidade com o resultado esperado. Não leia o material bruto.
+      - id: investigate
+        role: worker
+        tier: standard
+        readOnly: true
+        workers: 4
+        runner: research
+        does: Uma unidade por worker, até oito; não divida a mesma unidade entre briefings.
+        returns: Resposta com evidência arquivo:linha ou URL e incertezas restantes.
+        gate: Todos os workers relataram e a evidência sustenta cada resposta.
+      - id: follow-up
+        role: worker
+        tier: standard
+        readOnly: true
+        runner: rescue
+        after: investigate
+        if: report-weak
+        then: recheck
+        does: Retome a sessão daquele worker com uma pergunta específica. Após erro de infraestrutura, entregue o mesmo briefing a um worker novo.
+        limit: Uma pergunta adicional por unidade.
+      - id: synthesize
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Aguarde todos os relatos e responda apenas com base neles.
+
+  scout-then-build:
+    name: Explorar e implementar
+    goal: Exploradores econômicos e somente leitura mapeiam o código; um worker padrão faz a alteração.
+    pickWhen: Código desconhecido com muita leitura e pouca escrita.
+    saves: Os exploradores devolvem resumos curtos sem preencher o contexto com arquivos brutos.
+    avoidWhen: Você já sabe quais arquivos mudar.
+    next: review-gate
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Indique as áreas a mapear e envie um explorador por área.
+      - id: scout
+        role: scout
+        tier: cheap
+        readOnly: true
+        workers: 4
+        runner: research
+        does: Uma área por explorador; mantenha cada parte bem abaixo de 100 mil tokens.
+        returns: Resumo de até 1,5 mil tokens com referências arquivo:linha.
+        gate: Os relatos dos exploradores concordam.
+      - id: settle
+        role: checker
+        tier: standard
+        effort: high
+        readOnly: true
+        runner: economy
+        after: scout
+        if: conflict
+        then: recheck
+        does: Resolva apenas a contradição com base nas linhas citadas.
+      - id: plan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Converta os resumos em um plano de alteração concreto.
+      - id: build
+        role: builder
+        tier: standard
+        readOnly: false
+        runner: economy
+        does: Implemente o plano.
+        returns: Arquivos alterados, checagens executadas, falhas e riscos.
+        gate: As checagens passam.
+      - id: fix
+        role: fixer
+        tier: strong
+        readOnly: false
+        runner: economy
+        after: build
+        if: checks-failed
+        then: recheck
+        does: Corrija a partir do trecho da falha e do diff.
+
+  advisor-escalation:
+    name: Consultor sob demanda
+    goal: Um executor padrão trabalha e consulta um especialista forte apenas nas decisões.
+    pickWhen: Tarefa longa, principalmente mecânica, com poucas decisões difíceis e um sinal claro para pedir ajuda.
+    saves: A Anthropic relata ganho de 2,7 pontos no SWE-bench Multilingual com Sonnet e consultor Opus, a custo 11,9% menor.
+    avoidWhen: Todas as etapas são difíceis; use plan-execute com executor forte.
+    source: https://claude.com/blog/the-advisor-strategy
+    next: review-gate
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Entregue a tarefa a um executor e identifique as decisões nas quais ele deve parar.
+      - id: execute
+        role: executor
+        tier: standard
+        readOnly: false
+        runner: economy
+        does: Trabalhe até concluir, travar ou chegar a uma decisão difícil de reverter; então relate o estado em até mil tokens.
+        returns: Estado, decisão necessária e opções consideradas.
+        gate: Concluído e checagens aprovadas.
+      - id: advise
+        role: advisor
+        tier: strong
+        readOnly: true
+        runner: economy
+        after: execute
+        if: stuck
+        does: Leia apenas o estado e os arquivos citados; responda à decisão.
+        limit: Até três consultas por tarefa.
+        rules:
+          - if: claude-low
+            use: { provider: codex, effort: xhigh }
+      - id: resume
+        role: executor
+        tier: standard
+        readOnly: false
+        runner: rescue
+        after: advise
+        then: recheck
+        does: Retome a sessão do executor com a orientação.
+
+  cascade:
+    name: Cascata
+    goal: Comece pelo nível econômico e eleve apenas quando uma checagem automática falhar.
+    pickWhen: Mudança mecânica com checagem automática, como testes, verificação de tipos ou lint.
+    saves: O FrugalGPT relata economia de até 98% com qualidade comparável ao GPT-4; muitas tentativas eliminam a economia.
+    avoidWhen: Não há checagem automática; a declaração do worker não serve como checagem.
+    source: https://arxiv.org/abs/2305.05176
+    next: review-gate
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: standard
+        readOnly: true
+        does: Descreva a tentativa econômica e a checagem automática que decide.
+      - id: try-cheap
+        role: attempt
+        tier: cheap
+        readOnly: false
+        runner: economy
+        does: Faça a alteração e execute a checagem.
+        gate: A checagem automática passa.
+      - id: try-standard
+        role: attempt
+        tier: standard
+        readOnly: false
+        runner: economy
+        after: try-cheap
+        if: checks-failed
+        does: Recomece do trecho da falha, sem usar a transcrição da tentativa econômica.
+        gate: A checagem automática passa.
+      - id: try-strong
+        role: attempt
+        tier: strong
+        readOnly: false
+        runner: economy
+        after: try-standard
+        if: checks-failed
+        then: done
+        does: Última tentativa com ambos os trechos de falha; relate o resultado de qualquer forma.
+        rules:
+          - if: budget-low
+            use: { tier: standard, effort: high }
+
+  parallel-worktrees:
+    name: Worktrees paralelas
+    goal: Altere módulos independentes ao mesmo tempo, cada um em sua worktree.
+    pickWhen: Módulos realmente independentes, com arquivos separados e interfaces combinadas.
+    saves: Economiza tempo decorrido, não tokens; cada worker relê sua parte.
+    avoidWhen: As unidades compartilham arquivos ou dependem da saída umas das outras.
+    next: review-gate
+    phases:
+      - id: plan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Atribua arquivos separados e defina interfaces entre unidades antes de qualquer escrita.
+      - id: build
+        role: builder
+        tier: standard
+        readOnly: false
+        workers: 3
+        isolate: true
+        runner: parallel
+        does: Uma unidade por worker, de dois a quatro, cada um em sua worktree.
+        returns: Diff, checagens executadas, falhas e riscos.
+      - id: integrate
+        role: integrator
+        tier: standard
+        readOnly: false
+        runner: economy
+        does: Combine os diffs e execute a suíte completa de testes.
+        gate: A suíte completa passa.
+      - id: replan
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        after: integrate
+        if: checks-failed
+        then: recheck
+        does: Replaneje apenas a parte que falhou.
+
+  best-of-n:
+    name: Melhor entre N
+    goal: Várias tentativas isoladas; descarte as falhas e deixe um avaliador forte escolher a melhor.
+    pickWhen: Correção difícil, ambígua e importante que justifica pagar por várias tentativas.
+    saves: Não economiza; custa cerca de N vezes mais em troca de maior confiabilidade.
+    avoidWhen: O custo importa mais do que a confiabilidade adicional.
+    next: review-gate
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Escreva um briefing e entregue-o a duas ou três tentativas isoladas.
+      - id: attempts
+        role: attempt
+        tier: standard
+        readOnly: false
+        workers: 3
+        isolate: true
+        runner: parallel
+        does: Duas ou três tentativas independentes; combine Claude e Codex quando ambos estiverem disponíveis.
+        returns: Diff e resultados dos testes.
+        gate: Pelo menos uma tentativa passa nos testes.
+      - id: strong-attempt
+        role: attempt
+        tier: strong
+        readOnly: false
+        runner: economy
+        after: attempts
+        if: no-pass
+        then: recheck
+        does: Uma tentativa a partir dos resumos das falhas.
+      - id: judge
+        role: judge
+        tier: strong
+        readOnly: true
+        runner: economy
+        does: Compare os diffs aprovados e escolha um.
+        returns: Tentativa escolhida e motivo.
+
+  review-gate:
+    name: Etapa de revisão
+    goal: Uma triagem econômica decide se a revisão vale a pena; a revisão forte procura bugs.
+    pickWhen: Diff concluído antes da integração; etapa final padrão de todo playbook de escrita.
+    saves: O nível forte procura bugs somente nos diffs que merecem revisão.
+    avoidWhen: O diff é trivial, como renomeação ou correção de comentário.
+    source: https://github.com/anthropics/claude-code/blob/main/plugins/code-review/commands/code-review.md
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: standard
+        readOnly: true
+        does: Entregue o diff concluído e as regras do repositório à triagem.
+      - id: triage
+        role: triage
+        tier: cheap
+        readOnly: true
+        runner: economy
+        does: Ignore diffs triviais; caso contrário, liste os caminhos que precisam de revisão.
+      - id: conventions
+        role: reviewer
+        tier: standard
+        readOnly: true
+        workers: 2
+        runner: research
+        does: Confira o diff segundo regras e convenções do repositório; dê a cada revisor um foco, como nomes e estrutura ou testes e erros.
+        returns: Achados com arquivo:linha, regra violada e checagens aprovadas.
+      - id: bugs
+        role: bug-hunter
+        tier: strong
+        readOnly: true
+        with: conventions
+        does: Procure apenas bugs reais no diff.
+        returns: Achados com arquivo:linha e cenário de falha.
+        rules:
+          - if: claude-opus-above:80
+            use: { model: sonnet, effort: high }
+      - id: validate
+        role: validator
+        tier: strong
+        readOnly: true
+        runner: economy
+        does: Confirme ou rejeite cada achado no código; achado independente de dois provedores dispensa segunda checagem.
+        returns: Cada achado confirmado ou rejeitado com evidência, seguido da linha VERDICT com PASS, FAIL ou NOT_PROVEN.
+        gate: O veredito é PASS e não restam achados confirmados.
+      - id: fix
+        role: fixer
+        tier: standard
+        readOnly: false
+        runner: economy
+        after: validate
+        if: findings-left
+        then: recheck
+        does: Corrija apenas os achados confirmados.
+        limit: Até duas rodadas; depois apresente o restante ao usuário.
+
+  audit-at-scale:
+    name: Auditoria em escala
+    goal: Workers econômicos verificam muitos itens semelhantes; apenas os achados passam por revisão detalhada.
+    pickWhen: Dezenas ou centenas de itens semelhantes, como endpoints, migrações ou dependências.
+    saves: O volume fica no nível econômico; apenas achados confirmados recebem uma segunda análise mais forte.
+    avoidWhen: Há menos de cerca de dez itens; use plan-big-execute-small.
+    phases:
+      - id: brief
+        role: planner
+        who: lead
+        tier: strong
+        readOnly: true
+        does: Defina o que conta como item e o esquema fixo de veredito.
+      - id: extract
+        role: extractor
+        tier: standard
+        readOnly: true
+        runner: economy
+        does: Liste todos os itens para checar, com esquema fixo de saída.
+        returns: Lista dos itens.
+      - id: check
+        role: checker
+        tier: cheap
+        readOnly: true
+        workers: 8
+        runner: research
+        does: Um item por worker em ondas de até oito, até verificar todos.
+        returns: Um veredito por item no esquema fixo, com evidência.
+      - id: skeptic
+        role: skeptic
+        tier: standard
+        effort: high
+        readOnly: true
+        workers: 2
+        runner: research
+        does: Reconfira apenas achados confirmados; marque como não verificado aquilo que não puder checar, nunca como refutado.
+      - id: report
+        role: planner
+        who: lead
+        tier: standard
+        readOnly: true
+        does: Relate itens confirmados, refutados e não verificados separadamente.
+
+sources:
+  - https://github.com/anthropics/claude-cookbooks/tree/main/managed_agents
+  - https://claude.com/blog/the-advisor-strategy
+  - https://code.claude.com/docs/en/model-config
+  - https://code.claude.com/docs/en/sub-agents
+  - https://www.anthropic.com/engineering/building-effective-agents
+  - https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  - https://www.anthropic.com/engineering/multi-agent-research-system
+  - https://aider.chat/2025/01/24/r1-sonnet.html
+  - https://arxiv.org/abs/2305.05176
+  - https://lmsys.org/blog/2024-07-01-routellm/
+  - https://github.com/anthropics/claude-code/blob/main/plugins/code-review/commands/code-review.md

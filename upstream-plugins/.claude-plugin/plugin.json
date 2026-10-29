@@ -1,0 +1,19 @@
+{
+  "name": "orquestrador-orchestrate",
+  "description": "Planeje e distribua tarefas delimitadas entre agentes CLI, com controle de uso e relatório final.",
+  "author": {
+    "name": "Kauã Miguel"
+  },
+  "homepage": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "repository": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "agents",
+    "codex",
+    "claude-code",
+    "antigravity",
+    "kimi",
+    "skills"
+  ]
+}

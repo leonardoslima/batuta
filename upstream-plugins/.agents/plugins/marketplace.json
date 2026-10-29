@@ -1,0 +1,22 @@
+{
+  "name": "orquestrador",
+  "interface": {
+    "displayName": "Orquestrador"
+  },
+  "plugins": [
+    {
+      "name": "orquestrador-orchestrate",
+      "version": "19.0.0",
+      "description": "Orquestre agentes CLI com playbooks, controle de uso e relatórios de execução.",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

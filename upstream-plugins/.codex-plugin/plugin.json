@@ -1,0 +1,29 @@
+{
+  "name": "orquestrador-orchestrate",
+  "version": "19.0.0",
+  "description": "Planeje e distribua tarefas delimitadas entre agentes CLI, com controle de uso e relatório final.",
+  "author": {
+    "name": "Kauã Miguel",
+    "url": "https://github.com/Kc1t"
+  },
+  "homepage": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "repository": "https://github.com/Kc1t/alethe-orchestrate-skill",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Orquestrador",
+    "shortDescription": "Distribua trabalho entre agentes CLI e acompanhe o resultado.",
+    "longDescription": "Escolhe um playbook, distribui tarefas delimitadas entre agentes CLI, acompanha o uso e registra o resultado de cada execução.",
+    "developerName": "Kauã Miguel",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Orquestre esta tarefa com os agentes mais econômicos capazes de concluí-la",
+      "Mostre o relatório da última orquestração"
+    ]
+  }
+}

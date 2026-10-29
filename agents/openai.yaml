@@ -1,0 +1,4 @@
+interface:
+  display_name: "Batuta"
+  short_description: "Coordene agentes de código com perfis e limites."
+  default_prompt: "Use $batuta para coordenar uma tarefa com os perfis e limites configurados."
